@@ -8,6 +8,8 @@ export interface LogLabels {
   more: string;
   none: string;
   placeholder: string;
+  /** Name of the "already done" state in the add form. */
+  doneState: string;
 }
 
 export interface Category {
@@ -31,6 +33,7 @@ const PLACE_LOG: LogLabels = {
   more: "Otra visita",
   none: "Aún no has ido.",
   placeholder: "¿Qué tal? Qué pediste, con quién fuiste, si volverías…",
+  doneState: "Ya he estado",
 };
 
 // To add a new filter, add an entry here (and its key to CatKey in types.ts).
@@ -62,6 +65,7 @@ export const CATEGORIES: Category[] = [
       title: "Veces que la he hecho", one: "vez", many: "veces",
       cta: "La he hecho", more: "Otra vez", none: "Aún no la has hecho.",
       placeholder: "¿Cómo salió? Qué cambiarías la próxima vez…",
+      doneState: "Ya la he hecho",
     },
   },
   {
@@ -73,6 +77,7 @@ export const CATEGORIES: Category[] = [
       title: "Registro", one: "vez", many: "veces",
       cta: "Hecho: registrar", more: "Otra vez", none: "Aún sin registrar.",
       placeholder: "¿Qué tal fue?",
+      doneState: "Ya está hecho",
     },
   },
 ];

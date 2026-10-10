@@ -1,4 +1,4 @@
-import { sortVisits } from "./items";
+import { allPhotos, sortVisits } from "./items";
 import * as store from "./store";
 import type { Coords } from "./links";
 import type { CatKey, Item, Order, Period, Tab } from "./types";
@@ -70,7 +70,7 @@ export function upsert(item: Item): void {
 export function remove(id: string): void {
   const gone = byId(id);
   items = items.filter((p) => p.id !== id);
-  if (gone) store.deletePhotos(gone.visits.flatMap((v) => v.photos)).catch(console.error);
+  if (gone) store.deletePhotos(allPhotos(gone)).catch(console.error);
   if (ui.sel === id) ui.sel = null;
   store.deleteItem(id).catch(fail);
   render();

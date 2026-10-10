@@ -11,6 +11,12 @@ export const esc = (s: unknown): string => String(s ?? "").replace(/[&<>"']/g, (
 export const safeHref = (u: string): string => (/^https?:\/\//i.test(u) ? esc(u) : "#");
 
 let toastTimer = 0;
+export function hideToast(): void {
+  clearTimeout(toastTimer);
+  const el = document.getElementById("toast");
+  if (el) el.hidden = true;
+}
+
 export function toast(msg: string): void {
   const el = document.getElementById("toast");
   if (!el) return;

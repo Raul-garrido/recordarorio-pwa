@@ -6,9 +6,10 @@ import { byId, items, load, onChange, render, select, ui } from "./state";
 import { requestPersistence } from "./store";
 import { $, toast } from "./util";
 import { initCard, openVisitForm, renderCard } from "./views/card";
-import { initForm, openAdd, openEdit } from "./views/form";
+import { initForm, openAdd, openEdit, quickPhoto } from "./views/form";
 import { currentItems, initList, renderFilters, renderList, renderListBar, renderTabs, restoreList } from "./views/list";
 import { initMore, renderMore } from "./views/more";
+import { drawPois, initPois } from "./views/pois";
 
 const VIEW_KEY = "recordatorio.view";
 
@@ -80,6 +81,7 @@ async function start(): Promise<void> {
   initCard({ edit: openEdit });
   initForm(map);
   initMore();
+  initPois(map);
 
   onChange(() => {
     renderListBar();
@@ -90,10 +92,16 @@ async function start(): Promise<void> {
     renderCard();
     const shown = ui.tab === "more" ? items.filter((p) => !ui.list || p.lists.includes(ui.list)) : currentItems();
     map.setItems(shown, ui.sel, ui.tab === "more");
+    drawPois();
     document.querySelector(".item.sel")?.scrollIntoView({ block: "nearest" });
   });
 
   $("#addBtn").addEventListener("click", () => openAdd());
+  $<HTMLInputElement>("#quickCam").addEventListener("change", async (e) => {
+    const input = e.target as HTMLInputElement;
+    await quickPhoto(input.files);
+    input.value = "";
+  });
   $("#locateBtn").addEventListener("click", () => locate().then(render, (e: Error) => toast(e.message)));
   map.map.on("moveend", () => {
     const c = map.map.getCenter();

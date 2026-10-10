@@ -3,6 +3,7 @@ import "leaflet/dist/leaflet.css";
 import { cat } from "./categories";
 import { hasLoc, isDone } from "./items";
 import type { Coords } from "./links";
+import { kindOf, type Bounds, type Poi } from "./poi";
 import type { Item } from "./types";
 
 const PIN_PATH = "M17,42C13,33 2,25 2,15A15,15 0 1 1 32,15C32,25 21,33 17,42Z";
@@ -29,6 +30,13 @@ export class MapView {
   private draft: L.Marker | null = null;
   private me: L.CircleMarker | null = null;
   private clickHandler: ((c: Coords) => void) | null = null;
+  private poiLayer = L.layerGroup();
+  /** Called when a map place (not one of ours) is tapped. */
+  onPoi: ((p: Poi) => void) | null = null;
+  /** Tap on an empty spot of the map (not a pin or place), or a long press anywhere. */
+  onEmptyTap: ((c: Coords) => void) | null = null;
+  onLongPress: ((c: Coords) => void) | null = null;
+  private popupClosedAt = 0;
 
   constructor(el: HTMLElement, private onSelect: (id: string | null) => void) {
     this.map = L.map(el, { zoomControl: false, attributionControl: true }).setView(DEFAULT_VIEW, 13);
@@ -37,11 +45,58 @@ export class MapView {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(this.map);
+    this.map.on("popupclose", () => (this.popupClosedAt = Date.now()));
     this.map.on("click", (e: L.LeafletMouseEvent) => {
-      if (this.clickHandler) this.clickHandler({ lat: e.latlng.lat, lng: e.latlng.lng });
+      const c = { lat: e.latlng.lat, lng: e.latlng.lng };
+      if (this.clickHandler) return this.clickHandler(c);
+      // A tap that only closed an open popup does nothing else.
+      if (Date.now() - this.popupClosedAt < 250) return;
+      if (this.onEmptyTap) this.onEmptyTap(c);
       else this.onSelect(null);
     });
+    this.map.on("contextmenu", (e: L.LeafletMouseEvent) => {
+      if (!this.clickHandler) this.onLongPress?.({ lat: e.latlng.lat, lng: e.latlng.lng });
+    });
     new ResizeObserver(() => this.map.invalidateSize()).observe(el);
+    this.poiLayer.addTo(this.map);
+  }
+
+  bounds(): Bounds {
+    const b = this.map.getBounds();
+    return { s: b.getSouth(), w: b.getWest(), n: b.getNorth(), e: b.getEast() };
+  }
+
+  /** Small dots for map places; highlighted ones (search results) are drawn bigger and on top. */
+  setPois(pois: Poi[], highlighted: Set<string>): void {
+    this.poiLayer.clearLayers();
+    const ordered = [...pois].sort((a, b) => Number(highlighted.has(a.id)) - Number(highlighted.has(b.id)));
+    for (const p of ordered) {
+      const hi = highlighted.has(p.id);
+      L.circleMarker([p.lat, p.lng], {
+        radius: hi ? 10 : 8,
+        weight: 2,
+        className: `poi c-${kindOf(p.tags).cat}${hi ? " hi" : ""}`,
+        bubblingMouseEvents: false,
+      })
+        .bindTooltip(p.name, { direction: "top", offset: [0, -6] })
+        .on("click", () => {
+          if (!this.clickHandler) this.onPoi?.(p);
+        })
+        .addTo(this.poiLayer);
+    }
+  }
+
+  showPopup(c: Coords, html: string): void {
+    L.popup({ className: "poipopup", maxWidth: 280, autoPanPadding: [20, 60] }).setLatLng([c.lat, c.lng]).setContent(html).openOn(this.map);
+  }
+
+  closePopup(): void {
+    this.map.closePopup();
+  }
+
+  fitPoints(pts: Coords[]): void {
+    if (pts.length === 1) this.map.setView([pts[0].lat, pts[0].lng], Math.max(this.map.getZoom(), 17));
+    else if (pts.length > 1) this.map.fitBounds(L.latLngBounds(pts.map((p) => L.latLng(p.lat, p.lng))), { padding: [40, 40], maxZoom: 17 });
   }
 
   /** Draws pins for the given items; items without a location are skipped. */

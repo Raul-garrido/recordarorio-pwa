@@ -12,6 +12,16 @@ export interface Visit {
   photos: string[];
 }
 
+/** Extra details that come from the map data (OpenStreetMap) when a place is added from the map. */
+export interface ItemInfo {
+  website: string;
+  phone: string;
+  /** Opening hours as given by OpenStreetMap, e.g. "Mo-Fr 12:00-16:00". */
+  hours: string;
+  /** OpenStreetMap id ("node/123"), used to recognise a place already saved. */
+  osmId: string;
+}
+
 export interface Item {
   id: string;
   name: string;
@@ -30,6 +40,9 @@ export interface Item {
   tags: string[];
   /** Trips or cities the item belongs to: "Lisboa mayo", "Madrid". */
   lists: string[];
+  info: ItemInfo;
+  /** Photos of the place itself (e.g. taken on the spot before visiting). Visit photos live in each visit. */
+  photos: string[];
   visits: Visit[];
   createdAt: string;
   updatedAt: string;

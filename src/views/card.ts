@@ -3,6 +3,7 @@ import { fmtDate, isoDate } from "../dates";
 import { avgRating, hasLoc, isDone, newId } from "../items";
 import { normUrl, platformOf, shortUrl } from "../links";
 import { hydratePhotos, photoUrl, savePhotos } from "../photos";
+import { hoursEs } from "../poi";
 import { byId, remove, render, select, setTab, ui, upsert } from "../state";
 import { deletePhotos } from "../store";
 import type { Item, Visit } from "../types";
@@ -46,7 +47,9 @@ function visitForm(p: Item, v: Visit | null): string {
     ${starPick(vdraft.rating)}
     <textarea id="vNote" placeholder="${esc(cat(p.cat).log.placeholder)}" aria-label="Comentario">${esc(v?.note ?? "")}</textarea>
     <div class="photopick">
-      <label class="btn small" for="vPhotos">Añadir fotos</label>
+      <label class="btn small" for="vCam">Hacer foto</label>
+      <input type="file" id="vCam" accept="image/*" capture="environment" hidden>
+      <label class="btn small ghost" for="vPhotos">Desde la galería</label>
       <input type="file" id="vPhotos" accept="image/*" multiple hidden>
       <span class="hint" id="vPhotoInfo"></span>
     </div>
@@ -64,6 +67,17 @@ function visitRow(p: Item, v: Visit): string {
     ${v.note ? `<p>${esc(v.note)}</p>` : ""}
     ${thumbs(v.photos)}
   </li>`;
+}
+
+function infoHtml(p: Item): string {
+  const { hours, phone, website } = p.info;
+  if (!hours && !phone && !website) return "";
+  const rows = [
+    hours && `<div><span class="k">Horario</span><span>${esc(hoursEs(hours))}</span></div>`,
+    phone && `<div><span class="k">Teléfono</span><a href="tel:${esc(phone.replace(/[^+\d]/g, ""))}">${esc(phone)}</a></div>`,
+    website && `<div><span class="k">Web</span><a href="${safeHref(normUrl(website))}" target="_blank" rel="noopener">${esc(shortUrl(normUrl(website)))}</a></div>`,
+  ].filter(Boolean);
+  return `<div class="infobox">${rows.join("")}</div>`;
 }
 
 export function renderCard(): void {
@@ -93,8 +107,10 @@ export function renderCard(): void {
     <h2>${esc(p.name)}</h2>
     ${p.tags.length || p.lists.length ? `<div class="links">${p.lists.map((l) => `<button type="button" class="listchip" data-golist="${esc(l)}">${esc(l)}</button>`).join("")}${p.tags.map((t) => `<button type="button" class="tag" data-tagfilter="${esc(t)}">#${esc(t)}</button>`).join("")}</div>` : ""}
     ${p.desc ? `<p class="desc">${esc(p.desc)}</p>` : ""}
+    ${p.photos.length ? thumbs(p.photos) : ""}
     ${p.ingr ? `<div class="vlabel">Ingredientes</div><div class="ingr">${esc(p.ingr)}</div>` : ""}
     ${meta ? `<div class="meta">${meta}</div>` : ""}
+    ${infoHtml(p)}
     <div class="vlabel">Visto en</div>
     <div class="links">${p.socials.map(linkPill).join("")}${ui.addingLink ? "" : `<button type="button" class="lnk add" id="cardAddLink">+ ${p.socials.length ? "Otro enlace" : "Añadir enlace"}</button>`}</div>
     ${ui.addingLink ? `<form class="inl" id="linkForm"><input id="linkIn" type="url" inputmode="url" placeholder="Pega el enlace de TikTok, Instagram…" aria-label="Enlace"><button class="btn" type="submit">Añadir</button></form>` : ""}
@@ -222,7 +238,7 @@ export function initCard(opts: { edit: (id: string) => void }): void {
 
   card.addEventListener("change", (e) => {
     const input = e.target as HTMLInputElement;
-    if (input.id !== "vPhotos" || !input.files) return;
+    if ((input.id !== "vPhotos" && input.id !== "vCam") || !input.files) return;
     vdraft.files.push(...[...input.files].filter((f) => f.type.startsWith("image/")));
     input.value = "";
     syncPhotoInfo();
