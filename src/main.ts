@@ -7,7 +7,7 @@ import { requestPersistence } from "./store";
 import { $, toast } from "./util";
 import { initCard, openVisitForm, renderCard } from "./views/card";
 import { initForm, openAdd, openEdit } from "./views/form";
-import { currentItems, initList, renderFilters, renderList, renderTabs } from "./views/list";
+import { currentItems, initList, renderFilters, renderList, renderListBar, renderTabs, restoreList } from "./views/list";
 import { initMore, renderMore } from "./views/more";
 
 const VIEW_KEY = "recordatorio.view";
@@ -53,6 +53,9 @@ function restoreView(map: MapView): void {
 async function start(): Promise<void> {
   injectCategoryColors();
   const map = new MapView($("#map"), (id) => select(id));
+  const locate = async () => {
+    ui.here = await map.locate();
+  };
 
   try {
     await load();
@@ -71,24 +74,27 @@ async function start(): Promise<void> {
       const p = byId(id);
       if (p) map.focus(p);
     },
+    locate,
+    fitList: () => map.fitTo(currentItems()),
   });
   initCard({ edit: openEdit });
   initForm(map);
   initMore();
 
   onChange(() => {
+    renderListBar();
     renderTabs();
     renderFilters();
     renderList();
     renderMore();
     renderCard();
-    const shown = ui.tab === "more" ? items : currentItems();
+    const shown = ui.tab === "more" ? items.filter((p) => !ui.list || p.lists.includes(ui.list)) : currentItems();
     map.setItems(shown, ui.sel, ui.tab === "more");
     document.querySelector(".item.sel")?.scrollIntoView({ block: "nearest" });
   });
 
   $("#addBtn").addEventListener("click", () => openAdd());
-  $("#locateBtn").addEventListener("click", () => map.locate().catch((e: Error) => toast(e.message)));
+  $("#locateBtn").addEventListener("click", () => locate().then(render, (e: Error) => toast(e.message)));
   map.map.on("moveend", () => {
     const c = map.map.getCenter();
     try {
@@ -98,6 +104,7 @@ async function start(): Promise<void> {
     }
   });
 
+  restoreList();
   restoreView(map);
   render();
   handleShare();

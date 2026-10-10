@@ -1,18 +1,52 @@
 import { CATEGORIES } from "../categories";
-import { isDone, mergeItems } from "../items";
-import { items, replaceAll, ui } from "../state";
-import { parseImport, toExportJson } from "../store";
-import { $, toast } from "../util";
+import { cleanListName, isDone, mergeItems, renameList, usage } from "../items";
+import { items, render, replaceAll, ui, upsert } from "../state";
+import { exportPhotos, importPhotos, parseImport, toExportJson } from "../store";
+import { $, esc, toast } from "../util";
+import { setList } from "./list";
+
+/** List whose rename/delete controls are open. */
+let editing: string | null = null;
+let confirmDelete: string | null = null;
 
 export function renderMore(): void {
   if (ui.tab !== "more") return;
   const nDone = items.filter(isDone).length;
+  const nPhotos = items.reduce((n, p) => n + p.visits.reduce((m, v) => m + v.photos.length, 0), 0);
   const perCat = CATEGORIES.map((c) => `${c.name} ${items.filter((p) => p.cat === c.key).length}`).join(" · ");
+  const lists = usage(items, "lists");
+  const tags = usage(items, "tags");
   $("#paneMore").innerHTML = `
     <section>
+      <h2>Listas</h2>
+      ${
+        lists.length
+          ? `<ul class="mlist">${lists
+              .map((l) =>
+                editing === l.name
+                  ? `<li><form class="inl" data-rename="${esc(l.name)}"><input name="to" value="${esc(l.name)}" aria-label="Nuevo nombre" maxlength="60"><button class="btn small" type="submit">Guardar</button></form>
+                     <button type="button" class="btn ghost small danger" data-dellist="${esc(l.name)}">${confirmDelete === l.name ? "Toca otra vez: quitar lista" : "Quitar lista"}</button></li>`
+                  : `<li><button type="button" class="linklike" data-golist="${esc(l.name)}">${esc(l.name)}</button> <span class="muted">${l.n}</span>
+                     <button type="button" class="btn ghost small" data-editlist="${esc(l.name)}">Renombrar</button></li>`,
+              )
+              .join("")}</ul>
+             <p class="muted">Quitar una lista no borra nada: sus sitios siguen en «Todas».</p>`
+          : `<p class="muted">Agrupa sitios por viaje o ciudad, como «Lisboa mayo». Crea una con <b>+ Nueva</b> arriba, o desde el formulario al añadir.</p>`
+      }
+    </section>
+    <section>
+      <h2>Etiquetas</h2>
+      ${
+        tags.length
+          ? `<div class="links">${tags.map((t) => `<button type="button" class="tag" data-gotag="${esc(t.name)}">#${esc(t.name)} <span class="muted">${t.n}</span></button>`).join("")}</div>`
+          : `<p class="muted">Añade etiquetas como #terraza o #barato al guardar algo. Luego filtras por ellas en la lista.</p>`
+      }
+    </section>
+    <section>
       <h2>Tus datos</h2>
-      <p>${items.length} guardados: ${items.length - nDone} pendientes y ${nDone} visitados.<br><span class="muted">${perCat}</span></p>
+      <p>${items.length} guardados: ${items.length - nDone} pendientes y ${nDone} visitados. ${nPhotos} ${nPhotos === 1 ? "foto" : "fotos"}.<br><span class="muted">${perCat}</span></p>
       <p class="muted">Todo se guarda solo en este dispositivo. Haz una copia de vez en cuando, o para pasar tus datos a otro móvil.</p>
+      <label class="checkline"><input type="checkbox" id="withPhotos" ${nPhotos ? "checked" : "disabled"}> Incluir las fotos en la copia</label>
       <div class="row">
         <button class="btn" type="button" id="exportBtn">Descargar copia</button>
         <label class="btn" for="importIn">Cargar copia</label>
@@ -42,22 +76,70 @@ function download(name: string, text: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function applyRename(from: string, to: string): void {
+  for (const p of renameList(items, from, to)) upsert(p);
+  if (ui.list === from) setList(cleanListName(to) || null);
+  editing = null;
+  confirmDelete = null;
+  render();
+}
+
 export function initMore(): void {
   const pane = $("#paneMore");
-  pane.addEventListener("click", (e) => {
-    if ((e.target as Element).closest("#exportBtn")) {
-      download(`recordatorio-${new Date().toISOString().slice(0, 10)}.json`, toExportJson(items));
+  pane.addEventListener("click", async (e) => {
+    const t = e.target as Element;
+    const go = t.closest<HTMLElement>("[data-golist]")?.dataset.golist;
+    if (go) {
+      setList(go);
+      ui.tab = "pend";
+      return render();
+    }
+    const gt = t.closest<HTMLElement>("[data-gotag]")?.dataset.gotag;
+    if (gt) {
+      ui.tags = new Set([gt]);
+      ui.tab = "pend";
+      return render();
+    }
+    const ed = t.closest<HTMLElement>("[data-editlist]")?.dataset.editlist;
+    if (ed) {
+      editing = ed;
+      confirmDelete = null;
+      return render();
+    }
+    const del = t.closest<HTMLElement>("[data-dellist]")?.dataset.dellist;
+    if (del) {
+      if (confirmDelete !== del) {
+        confirmDelete = del;
+        return render();
+      }
+      applyRename(del, "");
+      return toast(`Lista «${del}» quitada.`);
+    }
+    if (t.closest("#exportBtn")) {
+      const withPhotos = $<HTMLInputElement>("#withPhotos").checked;
+      const photos = withPhotos ? await exportPhotos(items) : undefined;
+      download(`recordatorio-${new Date().toISOString().slice(0, 10)}.json`, toExportJson(items, photos));
       toast("Copia descargada.");
     }
+  });
+  pane.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const f = e.target as HTMLFormElement;
+    const from = f.dataset.rename;
+    if (!from) return;
+    const to = cleanListName(new FormData(f).get("to")?.toString() ?? "");
+    if (!to) return toast("Ponle un nombre a la lista.");
+    applyRename(from, to);
   });
   pane.addEventListener("change", async (e) => {
     const input = e.target as HTMLInputElement;
     if (input.id !== "importIn" || !input.files?.[0]) return;
     try {
-      const incoming = parseImport(await input.files[0].text());
-      const { items: merged, added, updated } = mergeItems(items, incoming);
+      const data = parseImport(await input.files[0].text());
+      const nPhotos = data.photos ? await importPhotos(data.photos) : 0;
+      const { items: merged, added, updated } = mergeItems(items, data.items);
       await replaceAll(merged);
-      toast(`Copia cargada: ${added} nuevos, ${updated} actualizados.`);
+      toast(`Copia cargada: ${added} nuevos, ${updated} actualizados${nPhotos ? `, ${nPhotos} fotos` : ""}.`);
     } catch (err) {
       console.error(err);
       toast("Ese archivo no es una copia de Recordatorio.");
@@ -66,3 +148,4 @@ export function initMore(): void {
     }
   });
 }
+

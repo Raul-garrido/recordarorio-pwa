@@ -1,14 +1,20 @@
 import { sortVisits } from "./items";
 import * as store from "./store";
+import type { Coords } from "./links";
 import type { CatKey, Item, Order, Period, Tab } from "./types";
 import { toast } from "./util";
 
 export interface UiState {
   tab: Tab;
   cats: Set<CatKey>;
+  tags: Set<string>;
+  /** Active trip/city list, or null for all. */
+  list: string | null;
   q: string;
   period: Period;
   order: Order;
+  /** Last known position of the user, for "Cerca de mí". */
+  here: Coords | null;
   sel: string | null;
   /** Card sub-states, reset whenever the selection changes. */
   addingVisit: boolean;
@@ -20,9 +26,12 @@ export interface UiState {
 export const ui: UiState = {
   tab: "pend",
   cats: new Set(),
+  tags: new Set(),
+  list: null,
   q: "",
   period: "all",
   order: "recent",
+  here: null,
   sel: null,
   addingVisit: false,
   addingLink: false,
@@ -59,7 +68,9 @@ export function upsert(item: Item): void {
 }
 
 export function remove(id: string): void {
+  const gone = byId(id);
   items = items.filter((p) => p.id !== id);
+  if (gone) store.deletePhotos(gone.visits.flatMap((v) => v.photos)).catch(console.error);
   if (ui.sel === id) ui.sel = null;
   store.deleteItem(id).catch(fail);
   render();

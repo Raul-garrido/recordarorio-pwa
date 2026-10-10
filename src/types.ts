@@ -6,6 +6,10 @@ export interface Visit {
   /** ISO date, YYYY-MM-DD */
   date: string;
   note: string;
+  /** 1–5 stars, 0 when not rated. */
+  rating: number;
+  /** Ids of photos kept in the "photos" store. */
+  photos: string[];
 }
 
 export interface Item {
@@ -22,6 +26,10 @@ export interface Item {
   mapsUrl: string;
   /** Links to videos or posts where the item was seen (TikTok, Instagram…). */
   socials: string[];
+  /** Free tags without "#", lower case: "terraza", "barato". */
+  tags: string[];
+  /** Trips or cities the item belongs to: "Lisboa mayo", "Madrid". */
+  lists: string[];
   visits: Visit[];
   createdAt: string;
   updatedAt: string;
@@ -29,4 +37,4 @@ export interface Item {
 
 export type Tab = "pend" | "done" | "more";
 export type Period = "all" | "d30" | "year";
-export type Order = "recent" | "most" | "az";
+export type Order = "recent" | "most" | "rating" | "near" | "az";

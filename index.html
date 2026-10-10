@@ -41,6 +41,15 @@
       </section>
 
       <aside class="side">
+        <div class="listbar">
+          <label for="listSel">Lista</label>
+          <select id="listSel"></select>
+          <button class="btn ghost small" type="button" id="newListBtn">+ Nueva</button>
+        </div>
+        <form class="inl newlist" id="newListForm" hidden>
+          <input id="newListIn" placeholder="Ej. Lisboa mayo, Madrid…" aria-label="Nombre de la lista" maxlength="60">
+          <button class="btn" type="submit">Crear</button>
+        </form>
         <div class="tabs" role="tablist">
           <button role="tab" id="tabPend" aria-selected="true" type="button">Pendientes</button>
           <button role="tab" id="tabDone" aria-selected="false" type="button">Visitados</button>
@@ -50,8 +59,9 @@
           <div class="filters">
             <div class="flabel">Tipo</div>
             <div class="fcats" id="fcats"></div>
-            <div class="fextra" id="fextra" hidden>
-              <div class="flabel">Cuándo</div><div class="seg" id="fperiod"></div>
+            <div class="ftags" id="ftags" hidden></div>
+            <div class="fextra">
+              <div class="flabel" id="fperiodLabel">Cuándo</div><div class="seg" id="fperiod"></div>
               <div class="flabel">Orden</div><div class="seg" id="forder"></div>
             </div>
           </div>
@@ -100,6 +110,15 @@
         <textarea id="fIngr" placeholder="Uno por línea o separados por comas"></textarea>
       </div>
       <div class="field">
+        <label for="fTags">Etiquetas <span class="hint">(separadas por comas: terraza, barato, con niños)</span></label>
+        <input id="fTags" placeholder="#terraza #barato">
+        <div class="tagsugg" id="tagSugg"></div>
+      </div>
+      <div class="field">
+        <span class="label">Listas <span class="hint">(viajes o ciudades)</span></span>
+        <div class="listpick" id="listPick"></div>
+      </div>
+      <div class="field">
         <span class="label">Visto en <span class="hint">(TikTok, Instagram, YouTube…)</span></span>
         <div class="socials" id="socials"></div>
         <button type="button" class="btn ghost small" id="addSocial">+ Añadir enlace</button>
@@ -110,6 +129,11 @@
         <button class="btn primary" type="submit" id="fSubmit">Guardar</button>
       </div>
     </form>
+  </div>
+
+  <div class="lightbox" id="lightbox" hidden>
+    <img id="lightImg" alt="Foto de la visita">
+    <button type="button" id="lightClose" aria-label="Cerrar foto">×</button>
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

@@ -1,11 +1,12 @@
 import { CATEGORIES, cat, iconSvg } from "../categories";
 import { geocode, type GeoResult } from "../geocode";
-import { makeItem } from "../items";
+import { cleanListName, makeItem, parseTags, usage } from "../items";
 import { normUrl, parseMapsLink, platformOf, type Coords } from "../links";
 import type { MapView } from "../map";
 import { byId, items, select, setTab, ui, upsert } from "../state";
 import type { CatKey, Item } from "../types";
 import { $, esc, toast } from "../util";
+import { setList } from "./list";
 
 export interface FormPrefill {
   cat?: CatKey;
@@ -15,6 +16,8 @@ export interface FormPrefill {
   mapsUrl?: string;
   coords?: Coords | null;
   socials?: string[];
+  tags?: string[];
+  lists?: string[];
 }
 
 interface Draft {
@@ -27,9 +30,10 @@ interface Draft {
   shared: string[];
   /** A Maps link that arrived through sharing while the input shows its address instead. */
   sharedMaps: string;
+  lists: Set<string>;
 }
 
-const d: Draft = { editId: null, cat: "comer", loc: null, locSource: "", shared: [], sharedMaps: "" };
+const d: Draft = { editId: null, cat: "comer", loc: null, locSource: "", shared: [], sharedMaps: "", lists: new Set() };
 let map: MapView;
 let geoAbort: AbortController | null = null;
 let lastGeoAt = 0;
@@ -195,6 +199,26 @@ function renderAttach(): void {
     candidates.map((p) => `<option value="${esc(p.id)}">${esc(p.name)} · ${esc(cat(p.cat).name)}</option>`).join("");
 }
 
+function renderTagSugg(): void {
+  const current = new Set(parseTags($<HTMLInputElement>("#fTags").value));
+  const sugg = usage(items, "tags").filter((t) => !current.has(t.name)).slice(0, 12);
+  $("#tagSugg").innerHTML = sugg.map((t) => `<button type="button" class="tag" data-addtag="${esc(t.name)}">+ #${esc(t.name)}</button>`).join("");
+}
+
+function renderListPick(): void {
+  const names = [...new Set([...usage(items, "lists").map((l) => l.name), ...d.lists])];
+  $("#listPick").innerHTML =
+    names.map((n) => `<button type="button" class="listchip" data-list="${esc(n)}" aria-pressed="${d.lists.has(n)}">${esc(n)}</button>`).join("") +
+    `<span class="inl newlist-inl"><input id="fNewList" placeholder="Nueva lista" aria-label="Nueva lista" maxlength="60"><button type="button" class="btn small" id="fNewListBtn">Añadir</button></span>`;
+}
+
+function addNewList(): void {
+  const name = cleanListName($<HTMLInputElement>("#fNewList").value);
+  if (!name) return;
+  d.lists.add(name);
+  renderListPick();
+}
+
 function showError(msg: string): void {
   const el = $("#formErr");
   el.textContent = msg;
@@ -235,6 +259,7 @@ function stopPicking(): void {
 }
 
 function fill(p: FormPrefill & { ingr?: string }): void {
+  d.lists = new Set(p.lists ?? (ui.list ? [ui.list] : []));
   $<HTMLFormElement>("#form").reset();
   showError("");
   d.cat = p.cat ?? ([...ui.cats][0] || "comer");
@@ -246,6 +271,9 @@ function fill(p: FormPrefill & { ingr?: string }): void {
   $("#geoResults").hidden = true;
   const socials = p.socials?.length ? p.socials : [""];
   $("#socials").replaceChildren(...socials.map(socialRow));
+  $<HTMLInputElement>("#fTags").value = (p.tags ?? [...ui.tags]).join(", ");
+  renderTagSugg();
+  renderListPick();
   setLoc(p.coords ?? null, p.coords ? "guardada" : "");
   syncCat();
   renderAttach();
@@ -300,6 +328,8 @@ function collect(): Partial<Item> {
     lat: rec || !d.loc ? null : d.loc.lat,
     lng: rec || !d.loc ? null : d.loc.lng,
     socials,
+    tags: parseTags($<HTMLInputElement>("#fTags").value),
+    lists: [...d.lists],
   };
 }
 
@@ -310,6 +340,9 @@ function save(fields: Partial<Item>): void {
   closeForm();
   if (!existing && ui.tab !== "pend") setTab("pend");
   if (ui.cats.size && !ui.cats.has(item.cat)) ui.cats.add(item.cat);
+  // Make sure the item just saved is visible with the current list and tag filters.
+  if (ui.list && !item.lists.includes(ui.list)) setList(null);
+  if ([...ui.tags].some((t) => !item.tags.includes(t))) ui.tags.clear();
   select(item.id);
   map.focus(item);
   toast(existing ? "Cambios guardados." : `«${item.name}» guardado.`);
@@ -359,6 +392,29 @@ export function initForm(mapView: MapView): void {
         setLoc(c, "elegida en el mapa");
         open();
       });
+    }
+  });
+  $<HTMLInputElement>("#fTags").addEventListener("input", renderTagSugg);
+  $("#tagSugg").addEventListener("click", (e) => {
+    const t = (e.target as Element).closest<HTMLElement>("[data-addtag]")?.dataset.addtag;
+    if (!t) return;
+    const inp = $<HTMLInputElement>("#fTags");
+    inp.value = [...parseTags(inp.value), t].join(", ");
+    renderTagSugg();
+  });
+  $("#listPick").addEventListener("click", (e) => {
+    const t = e.target as Element;
+    if (t.closest("#fNewListBtn")) return addNewList();
+    const n = t.closest<HTMLElement>("[data-list]")?.dataset.list;
+    if (!n) return;
+    if (d.lists.has(n)) d.lists.delete(n);
+    else d.lists.add(n);
+    renderListPick();
+  });
+  $("#listPick").addEventListener("keydown", (e) => {
+    if ((e.target as Element).id === "fNewList" && e.key === "Enter") {
+      e.preventDefault();
+      addNewList();
     }
   });
   $("#addSocial").addEventListener("click", () => {

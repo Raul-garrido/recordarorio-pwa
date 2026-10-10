@@ -8,10 +8,14 @@ PWA para guardar sitios a los que quieres ir, recetas que ves en vídeos y otras
 - **Ubicación**: pega un enlace de Google Maps (lee las coordenadas), escribe una dirección y pulsa *Buscar* (OpenStreetMap / Nominatim) o toca el mapa.
 - **Visto en**: varios enlaces por elemento (TikTok, Instagram, YouTube…), también añadibles después desde la ficha.
 - **Pendientes / Visitados**: al registrar una visita (fecha + comentario) pasa a Visitados. Se pueden añadir tantas visitas como quieras. En las recetas, cada registro es una vez que la has hecho.
-- **Filtros**: tipo, búsqueda (nombre, descripción, ingredientes, comentarios, plataforma) y, en Visitados, periodo y orden.
+- **Listas** por viaje o ciudad ("Lisboa mayo", "Madrid"): selector arriba de la lista; lo nuevo va a la lista activa. Se renombran o quitan en *Más*.
+- **Etiquetas** libres (#terraza, #barato) para filtrar dentro de cada tipo.
+- **Valoración y fotos** en cada visita (1–5 estrellas). La ficha muestra la media; las fotos se reducen a 1600 px antes de guardarlas.
+- **Filtros**: tipo, etiquetas, búsqueda (nombre, descripción, ingredientes, etiquetas, comentarios, plataforma) y, en Visitados, periodo.
+- **Orden**: recientes, A–Z y **Cerca de mí** (con la ubicación del móvil, muestra la distancia); en Visitados también más veces y mejor valorados.
 - **Compartir a la app** (Android, con la app instalada): desde Google Maps, TikTok o Instagram → Compartir → Recordatorio. Si es un vídeo, puedes añadirlo a algo que ya tengas guardado.
 - **Sin conexión**: la app abre sin red y recuerda las zonas del mapa ya vistas.
-- **Datos**: se guardan solo en el dispositivo (IndexedDB). En *Más* puedes descargar una copia y cargarla en otro móvil.
+- **Datos**: se guardan solo en el dispositivo (IndexedDB). En *Más* puedes descargar una copia (con o sin fotos) y cargarla en otro móvil.
 
 ## Desarrollo
 
@@ -40,7 +44,8 @@ Añade una entrada a `CATEGORIES` en `src/categories.ts` y su clave a `CatKey` e
 | `src/types.ts`, `src/categories.ts` | Modelo de datos y tipos |
 | `src/links.ts` | Lee enlaces de Maps, detecta TikTok/Instagram… y lo que llega al compartir |
 | `src/items.ts` | Filtros, orden, visitas, validación e importación |
-| `src/store.ts` | IndexedDB y copias de seguridad |
+| `src/store.ts` | IndexedDB (elementos y fotos) y copias de seguridad |
+| `src/photos.ts` | Reduce, guarda y muestra las fotos de las visitas |
 | `src/map.ts` | Mapa Leaflet + OpenStreetMap |
 | `src/geocode.ts` | Dirección → coordenadas (Nominatim) |
 | `src/views/*` | Lista, ficha, formulario y pestaña Más |
