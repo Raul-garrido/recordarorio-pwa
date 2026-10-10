@@ -41,6 +41,8 @@ export interface Item {
   /** Trips or cities the item belongs to: "Lisboa mayo", "Madrid". */
   lists: string[];
   info: ItemInfo;
+  /** Photos of the place itself (e.g. taken on the spot before visiting). Visit photos live in each visit. */
+  photos: string[];
   visits: Visit[];
   createdAt: string;
   updatedAt: string;

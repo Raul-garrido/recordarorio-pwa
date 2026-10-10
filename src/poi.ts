@@ -162,6 +162,35 @@ function overpassQuery(b: Bounds): string {
   return `[out:json][timeout:20];(${parts.join("")});out center tags 400;`;
 }
 
+/** Places worth saving within `radius` metres of a point, nearest first. */
+export async function fetchPoisAround(c: Coords, radius = 60, signal?: AbortSignal): Promise<Poi[]> {
+  const around = `around:${radius},${c.lat.toFixed(6)},${c.lng.toFixed(6)}`;
+  const parts = Object.entries(KINDS).map(([key, values]) => `nwr["${key}"~"^(${Object.keys(values).join("|")})$"]["name"](${around});`);
+  const res = await fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    body: new URLSearchParams({ data: `[out:json][timeout:15];(${parts.join("")});out center tags 30;` }),
+    signal,
+  });
+  if (!res.ok) throw new Error(`El mapa de locales respondió ${res.status}.`);
+  return sortByDistance(parseOverpass(await res.json()), c);
+}
+
+export function sortByDistance(pois: Poi[], c: Coords): Poi[] {
+  return [...pois].sort((a, b) => distanceKm(c, a) - distanceKm(c, b));
+}
+
+/** Street address of a point (Nominatim reverse), e.g. "Calle de Tetuán, 12, Madrid". "" when unknown. */
+export async function reverseAddress(c: Coords, signal?: AbortSignal): Promise<string> {
+  const params = new URLSearchParams({ lat: String(c.lat), lon: String(c.lng), format: "jsonv2", zoom: "18", addressdetails: "1", "accept-language": "es" });
+  const res = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`, { signal, headers: { Accept: "application/json" } });
+  if (!res.ok) return "";
+  const r = (await res.json()) as { address?: Record<string, string>; display_name?: string };
+  const a = r.address ?? {};
+  const street = [a.road ?? a.pedestrian ?? a.footway ?? a.square, a.house_number].filter(Boolean).join(", ");
+  const place = a.city ?? a.town ?? a.village ?? "";
+  return [street, place].filter(Boolean).join(", ") || (r.display_name ?? "").split(",").slice(0, 3).join(",").trim();
+}
+
 /** Places worth saving inside the given area (Overpass API). Keep the area small: use it only when zoomed in. */
 export async function fetchPois(b: Bounds, signal?: AbortSignal): Promise<Poi[]> {
   const res = await fetch("https://overpass-api.de/api/interpreter", {

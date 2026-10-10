@@ -1,5 +1,5 @@
 import { CATEGORIES } from "../categories";
-import { cleanListName, isDone, mergeItems, renameList, usage } from "../items";
+import { allPhotos, cleanListName, isDone, mergeItems, renameList, usage } from "../items";
 import { items, render, replaceAll, ui, upsert } from "../state";
 import { exportPhotos, importPhotos, parseImport, toExportJson } from "../store";
 import { $, esc, toast } from "../util";
@@ -12,7 +12,7 @@ let confirmDelete: string | null = null;
 export function renderMore(): void {
   if (ui.tab !== "more") return;
   const nDone = items.filter(isDone).length;
-  const nPhotos = items.reduce((n, p) => n + p.visits.reduce((m, v) => m + v.photos.length, 0), 0);
+  const nPhotos = items.reduce((n, p) => n + allPhotos(p).length, 0);
   const perCat = CATEGORIES.map((c) => `${c.name} ${items.filter((p) => p.cat === c.key).length}`).join(" · ");
   const lists = usage(items, "lists");
   const tags = usage(items, "tags");

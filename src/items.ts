@@ -26,6 +26,9 @@ export function avgRating(p: Item): number {
   return rated.length ? rated.reduce((s, v) => s + v.rating, 0) / rated.length : 0;
 }
 
+/** Every photo id an item uses: its own and its visits'. */
+export const allPhotos = (p: Item): string[] => [...p.photos, ...p.visits.flatMap((v) => v.photos)];
+
 /** Newest first; same-day entries keep the most recently added on top. */
 export function sortVisits(visits: Visit[]): Visit[] {
   return [...visits].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
@@ -81,6 +84,7 @@ export function makeItem(fields: Partial<Item> & { name: string; cat: CatKey }):
     tags: [],
     lists: [],
     info: emptyInfo(),
+    photos: [],
     visits: [],
     createdAt: now,
     updatedAt: now,
@@ -131,6 +135,7 @@ export function normalizeItem(raw: unknown): Item | null {
       const o = (r.info ?? {}) as Record<string, unknown>;
       return { website: str(o.website), phone: str(o.phone), hours: str(o.hours), osmId: str(o.osmId) };
     })(),
+    photos: strList(r.photos),
     visits: sortVisits(visits),
     createdAt: str(r.createdAt) || now,
     updatedAt: str(r.updatedAt) || now,

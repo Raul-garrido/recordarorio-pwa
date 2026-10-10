@@ -1,4 +1,4 @@
-import { normalizeItem } from "./items";
+import { allPhotos, normalizeItem } from "./items";
 import type { Item } from "./types";
 
 const DB_NAME = "recordatorio";
@@ -125,7 +125,7 @@ const blobToDataUrl = (b: Blob) =>
 
 export async function exportPhotos(items: Item[]): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
-  for (const id of items.flatMap((p) => p.visits.flatMap((v) => v.photos))) {
+  for (const id of items.flatMap(allPhotos)) {
     const blob = await getPhoto(id);
     if (blob) out[id] = await blobToDataUrl(blob);
   }

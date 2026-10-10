@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  avgRating, distanceKm, fmtDistance, inPeriod, makeItem, matchesQuery, mergeItems, normalizeItem, parseTags, renameList,
+  allPhotos, avgRating, distanceKm, fmtDistance, inPeriod, makeItem, matchesQuery, mergeItems, normalizeItem, parseTags, renameList,
   sortVisits, visibleItems, type Filters,
 } from "./items";
 import { parseImport, toExportJson } from "./store";
@@ -222,5 +222,13 @@ describe("import with photos", () => {
   it("keeps only image data URLs", () => {
     const json = toExportJson([item({ name: "A" })], { f1: "data:image/jpeg;base64,AAAA", f2: "javascript:alert(1)" });
     expect(Object.keys(parseImport(json).photos ?? {})).toEqual(["f1"]);
+  });
+});
+
+describe("photos", () => {
+  it("keeps place photos and lists every photo of an item", () => {
+    const p = normalizeItem({ name: "X", photos: ["a", 5], visits: [{ date: "2026-10-01", photos: ["b"] }] })!;
+    expect(p.photos).toEqual(["a"]);
+    expect(allPhotos(p)).toEqual(["a", "b"]);
   });
 });

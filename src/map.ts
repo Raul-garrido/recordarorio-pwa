@@ -33,6 +33,10 @@ export class MapView {
   private poiLayer = L.layerGroup();
   /** Called when a map place (not one of ours) is tapped. */
   onPoi: ((p: Poi) => void) | null = null;
+  /** Tap on an empty spot of the map (not a pin or place), or a long press anywhere. */
+  onEmptyTap: ((c: Coords) => void) | null = null;
+  onLongPress: ((c: Coords) => void) | null = null;
+  private popupClosedAt = 0;
 
   constructor(el: HTMLElement, private onSelect: (id: string | null) => void) {
     this.map = L.map(el, { zoomControl: false, attributionControl: true }).setView(DEFAULT_VIEW, 13);
@@ -41,9 +45,17 @@ export class MapView {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(this.map);
+    this.map.on("popupclose", () => (this.popupClosedAt = Date.now()));
     this.map.on("click", (e: L.LeafletMouseEvent) => {
-      if (this.clickHandler) this.clickHandler({ lat: e.latlng.lat, lng: e.latlng.lng });
+      const c = { lat: e.latlng.lat, lng: e.latlng.lng };
+      if (this.clickHandler) return this.clickHandler(c);
+      // A tap that only closed an open popup does nothing else.
+      if (Date.now() - this.popupClosedAt < 250) return;
+      if (this.onEmptyTap) this.onEmptyTap(c);
       else this.onSelect(null);
+    });
+    this.map.on("contextmenu", (e: L.LeafletMouseEvent) => {
+      if (!this.clickHandler) this.onLongPress?.({ lat: e.latlng.lat, lng: e.latlng.lng });
     });
     new ResizeObserver(() => this.map.invalidateSize()).observe(el);
     this.poiLayer.addTo(this.map);

@@ -24,6 +24,11 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <input id="q" type="search" placeholder="Buscar sitio, receta, ingrediente…" autocomplete="off" aria-label="Buscar">
       </label>
+      <label class="btn" for="quickCam" title="Haz una foto y guárdala con tu ubicación">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        Foto
+      </label>
+      <input type="file" id="quickCam" accept="image/*" capture="environment" hidden>
       <button class="btn primary" id="addBtn" type="button">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
         Añadir
@@ -86,6 +91,10 @@
         <span class="label">Tipo</span>
         <div class="catpick" id="catpick"></div>
       </div>
+      <div class="field" id="nearField" hidden>
+        <span class="label">¿Es alguno de estos sitios de al lado?</span>
+        <div class="nearlist" id="nearList"></div>
+      </div>
       <div class="field" id="attachField" hidden>
         <label for="attachSel">¿Es de algo que ya tienes guardado?</label>
         <div class="inl">
@@ -114,6 +123,29 @@
       <div class="field" id="ingrField" hidden>
         <label for="fIngr">Ingredientes</label>
         <textarea id="fIngr" placeholder="Uno por línea o separados por comas"></textarea>
+      </div>
+      <div class="field" id="statusField">
+        <span class="label">Estado</span>
+        <div class="seg" id="statusSeg">
+          <button type="button" data-s="pend" aria-pressed="true">Pendiente</button>
+          <button type="button" data-s="done" aria-pressed="false" id="statusDoneBtn">Ya he estado</button>
+        </div>
+        <div class="vform" id="doneFields" hidden>
+          <input type="date" id="fVisitDate" aria-label="Fecha">
+          <div class="starpick" id="fStars" role="group" aria-label="Valoración"></div>
+          <textarea id="fVisitNote" aria-label="Comentario de la visita"></textarea>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Fotos</span>
+        <div class="thumbs" id="fPhotos"></div>
+        <div class="row">
+          <label class="btn small" for="fCam">Hacer foto</label>
+          <input type="file" id="fCam" accept="image/*" capture="environment" hidden>
+          <label class="btn small ghost" for="fGal">Desde la galería</label>
+          <input type="file" id="fGal" accept="image/*" multiple hidden>
+          <span class="hint" id="fPhotoInfo"></span>
+        </div>
       </div>
       <div class="field">
         <label for="fTags">Etiquetas <span class="hint">(separadas por comas: terraza, barato, con niños)</span></label>

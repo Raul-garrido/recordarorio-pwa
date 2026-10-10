@@ -6,7 +6,7 @@ import { byId, items, load, onChange, render, select, ui } from "./state";
 import { requestPersistence } from "./store";
 import { $, toast } from "./util";
 import { initCard, openVisitForm, renderCard } from "./views/card";
-import { initForm, openAdd, openEdit } from "./views/form";
+import { initForm, openAdd, openEdit, quickPhoto } from "./views/form";
 import { currentItems, initList, renderFilters, renderList, renderListBar, renderTabs, restoreList } from "./views/list";
 import { initMore, renderMore } from "./views/more";
 import { drawPois, initPois } from "./views/pois";
@@ -97,6 +97,11 @@ async function start(): Promise<void> {
   });
 
   $("#addBtn").addEventListener("click", () => openAdd());
+  $<HTMLInputElement>("#quickCam").addEventListener("change", async (e) => {
+    const input = e.target as HTMLInputElement;
+    await quickPhoto(input.files);
+    input.value = "";
+  });
   $("#locateBtn").addEventListener("click", () => locate().then(render, (e: Error) => toast(e.message)));
   map.map.on("moveend", () => {
     const c = map.map.getCenter();

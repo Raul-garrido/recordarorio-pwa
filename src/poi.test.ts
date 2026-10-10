@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeItem } from "./items";
-import { findSaved, hoursEs, kindOf, parseOverpass, poiFromNominatim, prefillFromPoi, type Poi } from "./poi";
+import { findSaved, hoursEs, kindOf, parseOverpass, poiFromNominatim, prefillFromPoi, sortByDistance, type Poi } from "./poi";
 
 const labra: Poi = {
   id: "node/1",
@@ -98,5 +98,12 @@ describe("findSaved", () => {
 
     const farAway = makeItem({ name: "Casa Labra", cat: "comer", lat: 40.43, lng: -3.70 });
     expect(findSaved([farAway], labra)).toBeUndefined();
+  });
+});
+
+describe("sortByDistance", () => {
+  it("puts the nearest place first", () => {
+    const far: Poi = { ...labra, id: "node/2", name: "Lejos", lat: 40.43 };
+    expect(sortByDistance([far, labra], { lat: 40.4176, lng: -3.7053 }).map((p) => p.name)).toEqual(["Casa Labra", "Lejos"]);
   });
 });

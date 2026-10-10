@@ -1,11 +1,15 @@
 import { CATEGORIES, cat, iconSvg } from "../categories";
 import { geocode, type GeoResult } from "../geocode";
-import { cleanListName, emptyInfo, makeItem, parseTags, usage } from "../items";
+import { fmtDate, isoDate } from "../dates";
+import { cleanListName, distanceKm, emptyInfo, fmtDistance, makeItem, newId, parseTags, usage } from "../items";
 import { normUrl, parseMapsLink, platformOf, type Coords } from "../links";
 import type { MapView } from "../map";
+import { hydratePhotos, savePhotos } from "../photos";
+import { fetchPoisAround, kindOf, prefillFromPoi, reverseAddress, type Poi } from "../poi";
+import { deletePhotos } from "../store";
 import { byId, items, select, setTab, ui, upsert } from "../state";
 import type { CatKey, Item, ItemInfo } from "../types";
-import { $, esc, toast } from "../util";
+import { $, esc, hideToast, toast } from "../util";
 import { setList } from "./list";
 
 export interface FormPrefill {
@@ -21,6 +25,12 @@ export interface FormPrefill {
   info?: ItemInfo;
   /** Shown next to the location, e.g. "del mapa". */
   locSource?: string;
+  /** Start as already visited (with date, stars and comment) instead of pending. */
+  status?: "pend" | "done";
+  /** Photos already stored (e.g. just taken with the camera). */
+  photos?: string[];
+  /** Look up the street address and the places right next to `coords`. */
+  lookupNear?: boolean;
 }
 
 interface Draft {
@@ -35,9 +45,21 @@ interface Draft {
   sharedMaps: string;
   lists: Set<string>;
   info: ItemInfo;
+  status: "pend" | "done";
+  rating: number;
+  photos: string[];
+  /** Photos stored while this form was open: deleted again if it is cancelled. */
+  added: string[];
+  /** Saved photos taken out while editing: deleted once the changes are saved. */
+  removed: string[];
 }
 
-const d: Draft = { editId: null, cat: "comer", loc: null, locSource: "", shared: [], sharedMaps: "", lists: new Set(), info: emptyInfo() };
+const d: Draft = {
+  editId: null, cat: "comer", loc: null, locSource: "", shared: [], sharedMaps: "", lists: new Set(), info: emptyInfo(),
+  status: "pend", rating: 0, photos: [], added: [], removed: [],
+};
+let nearAbort: AbortController | null = null;
+let nearby: Poi[] = [];
 let map: MapView;
 let geoAbort: AbortController | null = null;
 let lastGeoAt = 0;
@@ -75,6 +97,96 @@ function syncCat(): void {
       : "Ubicación: enlace de Google Maps, dirección o coordenadas";
   renderCatPick();
   renderLocState();
+  renderStatus();
+}
+
+function renderStatus(): void {
+  const L = cat(d.cat).log;
+  $("#statusField").hidden = d.editId !== null;
+  $("#statusDoneBtn").textContent = L.doneState;
+  $("#statusSeg").querySelectorAll<HTMLElement>("[data-s]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.s === d.status)));
+  $("#doneFields").hidden = d.status !== "done";
+  $<HTMLTextAreaElement>("#fVisitNote").placeholder = L.placeholder;
+  $("#fStars").innerHTML =
+    [1, 2, 3, 4, 5].map((n) => `<button type="button" data-star="${n}" aria-pressed="${n <= d.rating}" aria-label="${n} de 5">★</button>`).join("") +
+    `<button type="button" class="nostar" data-star="0">Sin nota</button>`;
+}
+
+function renderPhotos(): void {
+  const el = $("#fPhotos");
+  el.innerHTML = d.photos
+    .map((id) => `<span class="thumb"><span class="thumbimg"><img data-photo="${esc(id)}" alt=""></span><button type="button" class="thumb-rm" data-photo-rm="${esc(id)}" aria-label="Quitar foto">×</button></span>`)
+    .join("");
+  hydratePhotos(el);
+}
+
+async function addPhotoFiles(files: FileList | null): Promise<void> {
+  if (!files?.length) return;
+  const info = $("#fPhotoInfo");
+  info.textContent = "Guardando foto…";
+  try {
+    const ids = await savePhotos(files);
+    d.photos.push(...ids);
+    d.added.push(...ids);
+    renderPhotos();
+    info.textContent = "";
+  } catch (e) {
+    console.error(e);
+    info.textContent = "No se pudo guardar la foto.";
+  }
+}
+
+function renderNearby(): void {
+  const field = $("#nearField");
+  field.hidden = !nearby.length;
+  const here = d.loc;
+  $("#nearList").innerHTML = nearby
+    .slice(0, 6)
+    .map((p, i) => {
+      const k = kindOf(p.tags);
+      const dist = here ? ` · ${fmtDistance(distanceKm(here, p))}` : "";
+      return `<button type="button" class="near c-${k.cat}" data-near="${i}"><b>${esc(p.name)}</b><span>${esc(k.label)}${dist}</span></button>`;
+    })
+    .join("");
+}
+
+/** Fills the address and offers the named places right next to a point (camera or map tap). */
+async function lookupNear(c: Coords): Promise<void> {
+  nearAbort?.abort();
+  nearAbort = new AbortController();
+  const signal = nearAbort.signal;
+  nearby = [];
+  renderNearby();
+  const [pois, addr] = await Promise.allSettled([fetchPoisAround(c, 70, signal), reverseAddress(c, signal)]);
+  if (signal.aborted) return;
+  if (addr.status === "fulfilled" && addr.value && !linkIn().value.trim()) {
+    linkIn().value = addr.value;
+    linkIn().dataset.addr = "";
+    setHint("Dirección del punto marcado.", "ok");
+  }
+  if (pois.status === "fulfilled") {
+    nearby = pois.value;
+    renderNearby();
+  }
+}
+
+function applyNearby(p: Poi): void {
+  const f = prefillFromPoi(p);
+  nameIn().value = f.name;
+  d.cat = f.cat;
+  d.info = f.info;
+  if (f.addr) {
+    linkIn().value = f.addr;
+    linkIn().dataset.addr = "";
+  }
+  const tags = $<HTMLInputElement>("#fTags");
+  tags.value = [...new Set([...parseTags(tags.value), ...f.tags])].join(", ");
+  renderTagSugg();
+  setLoc(f.coords, "del mapa");
+  syncCat();
+  nearby = [];
+  renderNearby();
+  setHint("Datos del mapa. Solo te falta tu comentario.", "ok");
 }
 
 function renderLocState(): void {
@@ -229,12 +341,16 @@ function showError(msg: string): void {
   el.hidden = !msg;
 }
 
-function open(): void {
+function open(fromTop = false): void {
   $("#overlay").hidden = false;
+  if (fromTop) $("#form").scrollTop = 0;
   document.body.classList.add("modal");
 }
 
 export function closeForm(): void {
+  if (d.added.length) deletePhotos(d.added).catch(console.error);
+  d.added = [];
+  nearAbort?.abort();
   $("#overlay").hidden = true;
   document.body.classList.remove("modal");
   stopPicking();
@@ -265,7 +381,18 @@ function stopPicking(): void {
 function fill(p: FormPrefill & { ingr?: string }): void {
   d.lists = new Set(p.lists ?? (ui.list ? [ui.list] : []));
   d.info = p.info ?? emptyInfo();
+  d.status = p.status ?? "pend";
+  d.rating = 0;
+  d.photos = [...(p.photos ?? [])];
+  d.removed = [];
+  nearAbort?.abort();
+  nearby = [];
+  renderNearby();
   $<HTMLFormElement>("#form").reset();
+  $<HTMLInputElement>("#fVisitDate").value = isoDate();
+  $<HTMLInputElement>("#fVisitDate").max = isoDate();
+  $("#fPhotoInfo").textContent = "";
+  renderPhotos();
   showError("");
   d.cat = p.cat ?? ([...ui.cats][0] || "comer");
   nameIn().value = p.name ?? "";
@@ -286,14 +413,16 @@ function fill(p: FormPrefill & { ingr?: string }): void {
   else setHint("Pega un enlace de Google Maps (Compartir → Copiar enlace) o escribe la dirección y pulsa Buscar.");
   if (p.coords) setLoc(p.coords, d.editId ? "guardada" : p.locSource ?? "del enlace");
   if (!d.editId && p.locSource === "del mapa") setHint("Datos del mapa. Solo te falta tu comentario.", "ok");
+  if (!d.editId && p.locSource && p.locSource !== "del mapa") setHint(`Ubicación ${p.locSource}.`, "ok");
 }
 
 export function openAdd(prefill: FormPrefill = {}): void {
   d.editId = null;
+  d.added = [...(prefill.photos ?? [])];
   d.shared = prefill.socials ?? [];
   d.sharedMaps = "";
   fill(prefill);
-  open();
+  open(true);
   if (prefill.mapsUrl && !prefill.coords && (prefill.name || prefill.addr)) {
     // Shared from Google Maps with a short link: look the address up straight away.
     d.sharedMaps = prefill.mapsUrl;
@@ -301,7 +430,37 @@ export function openAdd(prefill: FormPrefill = {}): void {
     linkIn().dataset.addr = "";
     geoSearch();
   }
-  setTimeout(() => (prefill.name ? $<HTMLTextAreaElement>("#fDesc") : linkIn()).focus({ preventScroll: true }), 50);
+  if (prefill.lookupNear && prefill.coords) lookupNear(prefill.coords);
+  // After a quick photo, don't pop the keyboard up: saving straight away must stay one tap.
+  if (!prefill.photos?.length && !prefill.lookupNear) {
+    setTimeout(() => (prefill.name ? $<HTMLTextAreaElement>("#fDesc") : linkIn()).focus({ preventScroll: true }), 50);
+  }
+}
+
+/** Camera button: store the photo, open the form, then add the current location and nearby places. */
+export async function quickPhoto(files: FileList | null): Promise<void> {
+  if (!files?.length) return;
+  toast("Guardando foto…");
+  let ids: string[];
+  try {
+    ids = await savePhotos(files);
+  } catch (e) {
+    console.error(e);
+    toast("No se pudo guardar la foto.");
+    return;
+  }
+  hideToast();
+  openAdd({ photos: ids });
+  setHint("Buscando dónde estás…");
+  try {
+    const c = await map.locate();
+    if ($("#overlay").hidden || d.loc) return;
+    setLoc(c, "tu ubicación");
+    setHint("Ubicación: donde estás ahora.", "ok");
+    lookupNear(c);
+  } catch (e) {
+    setHint(`${(e as Error).message} Puedes elegir el sitio en el mapa.`, "warn");
+  }
 }
 
 export function openEdit(id: string): void {
@@ -310,8 +469,9 @@ export function openEdit(id: string): void {
   d.editId = id;
   d.shared = [];
   d.sharedMaps = "";
+  d.added = [];
   fill({ ...p, coords: p.lat != null && p.lng != null ? { lat: p.lat, lng: p.lng } : null });
-  open();
+  open(true);
 }
 
 function collect(): Partial<Item> {
@@ -337,15 +497,35 @@ function collect(): Partial<Item> {
     tags: parseTags($<HTMLInputElement>("#fTags").value),
     lists: [...d.lists],
     info: d.info,
+    photos: [...d.photos],
   };
 }
 
 function save(fields: Partial<Item>): void {
   const existing = byId(d.editId);
-  const item = existing ? { ...existing, ...fields } : makeItem(fields as Partial<Item> & { name: string; cat: CatKey });
+  let item: Item;
+  if (existing) {
+    item = { ...existing, ...fields };
+    if (d.removed.length) deletePhotos(d.removed).catch(console.error);
+  } else {
+    item = makeItem(fields as Partial<Item> & { name: string; cat: CatKey });
+    if (d.status === "done") {
+      // Photos taken while there belong to the visit.
+      item.visits = [{
+        id: newId("v"),
+        date: $<HTMLInputElement>("#fVisitDate").value || isoDate(),
+        note: $<HTMLTextAreaElement>("#fVisitNote").value.trim(),
+        rating: d.rating,
+        photos: item.photos,
+      }];
+      item.photos = [];
+    }
+  }
+  d.added = []; // now owned by the item
   upsert(item);
   closeForm();
-  if (!existing && ui.tab !== "pend") setTab("pend");
+  const tab = !existing && d.status === "done" ? "done" : "pend";
+  if (!existing && ui.tab !== tab) setTab(tab);
   if (ui.cats.size && !ui.cats.has(item.cat)) ui.cats.add(item.cat);
   // Make sure the item just saved is visible with the current list and tag filters.
   if (ui.list && !item.lists.includes(ui.list)) setList(null);
@@ -358,6 +538,10 @@ function save(fields: Partial<Item>): void {
 function submit(e: Event): void {
   e.preventDefault();
   const f = collect();
+  if (!f.name && (f.lat != null || d.photos.length)) {
+    // In a hurry on the spot: a name can be added later.
+    f.name = f.addr || `Sin nombre · ${fmtDate(isoDate())}`;
+  }
   if (!f.name) {
     showError("Ponle un nombre.");
     nameIn().focus();
@@ -374,6 +558,42 @@ function submit(e: Event): void {
 
 export function initForm(mapView: MapView): void {
   map = mapView;
+  $("#statusSeg").addEventListener("click", (e) => {
+    const s = (e.target as Element).closest<HTMLElement>("[data-s]")?.dataset.s;
+    if (s !== "pend" && s !== "done") return;
+    d.status = s;
+    renderStatus();
+    if (s === "done") $<HTMLTextAreaElement>("#fVisitNote").focus({ preventScroll: true });
+  });
+  $("#fStars").addEventListener("click", (e) => {
+    const n = (e.target as Element).closest<HTMLElement>("[data-star]")?.dataset.star;
+    if (n == null) return;
+    d.rating = Number(n);
+    renderStatus();
+  });
+  for (const id of ["#fCam", "#fGal"]) {
+    $<HTMLInputElement>(id).addEventListener("change", async (e) => {
+      const input = e.target as HTMLInputElement;
+      await addPhotoFiles(input.files);
+      input.value = "";
+    });
+  }
+  $("#fPhotos").addEventListener("click", (e) => {
+    const id = (e.target as Element).closest<HTMLElement>("[data-photo-rm]")?.dataset.photoRm;
+    if (!id) return;
+    d.photos = d.photos.filter((x) => x !== id);
+    if (d.added.includes(id)) {
+      d.added = d.added.filter((x) => x !== id);
+      deletePhotos([id]).catch(console.error);
+    } else {
+      d.removed.push(id);
+    }
+    renderPhotos();
+  });
+  $("#nearList").addEventListener("click", (e) => {
+    const i = (e.target as Element).closest<HTMLElement>("[data-near]")?.dataset.near;
+    if (i != null && nearby[Number(i)]) applyNearby(nearby[Number(i)]);
+  });
   $("#catpick").addEventListener("click", (e) => {
     const b = (e.target as Element).closest<HTMLButtonElement>("button[data-k]");
     if (!b) return;

@@ -47,7 +47,9 @@ function visitForm(p: Item, v: Visit | null): string {
     ${starPick(vdraft.rating)}
     <textarea id="vNote" placeholder="${esc(cat(p.cat).log.placeholder)}" aria-label="Comentario">${esc(v?.note ?? "")}</textarea>
     <div class="photopick">
-      <label class="btn small" for="vPhotos">Añadir fotos</label>
+      <label class="btn small" for="vCam">Hacer foto</label>
+      <input type="file" id="vCam" accept="image/*" capture="environment" hidden>
+      <label class="btn small ghost" for="vPhotos">Desde la galería</label>
       <input type="file" id="vPhotos" accept="image/*" multiple hidden>
       <span class="hint" id="vPhotoInfo"></span>
     </div>
@@ -105,6 +107,7 @@ export function renderCard(): void {
     <h2>${esc(p.name)}</h2>
     ${p.tags.length || p.lists.length ? `<div class="links">${p.lists.map((l) => `<button type="button" class="listchip" data-golist="${esc(l)}">${esc(l)}</button>`).join("")}${p.tags.map((t) => `<button type="button" class="tag" data-tagfilter="${esc(t)}">#${esc(t)}</button>`).join("")}</div>` : ""}
     ${p.desc ? `<p class="desc">${esc(p.desc)}</p>` : ""}
+    ${p.photos.length ? thumbs(p.photos) : ""}
     ${p.ingr ? `<div class="vlabel">Ingredientes</div><div class="ingr">${esc(p.ingr)}</div>` : ""}
     ${meta ? `<div class="meta">${meta}</div>` : ""}
     ${infoHtml(p)}
@@ -235,7 +238,7 @@ export function initCard(opts: { edit: (id: string) => void }): void {
 
   card.addEventListener("change", (e) => {
     const input = e.target as HTMLInputElement;
-    if (input.id !== "vPhotos" || !input.files) return;
+    if ((input.id !== "vPhotos" && input.id !== "vCam") || !input.files) return;
     vdraft.files.push(...[...input.files].filter((f) => f.type.startsWith("image/")));
     input.value = "";
     syncPhotoInfo();

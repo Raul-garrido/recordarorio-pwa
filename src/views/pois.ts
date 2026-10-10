@@ -1,7 +1,8 @@
 import { cat } from "../categories";
 import type { MapView } from "../map";
 import { addressOf, cuisineLabels, fetchPois, findSaved, hoursEs, kindOf, prefillFromPoi, searchPois, type Bounds, type Poi } from "../poi";
-import { items, select } from "../state";
+import { items, select, ui } from "../state";
+import type { Coords } from "../links";
 import { $, esc, toast } from "../util";
 import { openAdd } from "./form";
 
@@ -15,6 +16,20 @@ let abort: AbortController | null = null;
 let timer = 0;
 let lastSearchAt = 0;
 let map: MapView;
+/** Point the user tapped to add a pin of their own. */
+let markAt: Coords | null = null;
+
+function showMark(c: Coords): void {
+  markAt = c;
+  map.showPopup(c, `<div class="poipop">
+    <b>¿Añadir este punto?</b>
+    <span class="muted">Aunque no salga ningún local, puedes guardarlo.</span>
+    <div class="row">
+      <button type="button" class="btn primary small" data-mark="pend">+ Pendiente</button>
+      <button type="button" class="btn small" data-mark="done">✓ Ya he estado</button>
+    </div>
+  </div>`);
+}
 
 const inside = (b: Bounds, outer: Bounds) => b.s >= outer.s && b.n <= outer.n && b.w >= outer.w && b.e <= outer.e;
 
@@ -139,6 +154,12 @@ function clearSearch(): void {
 export function initPois(mapView: MapView): void {
   map = mapView;
   map.onPoi = showPoi;
+  map.onEmptyTap = (c) => {
+    // With a card open, the first tap on the map just closes it.
+    if (ui.sel) return select(null);
+    showMark(c);
+  };
+  map.onLongPress = showMark;
   map.map.on("moveend", () => {
     clearTimeout(timer);
     timer = window.setTimeout(load, 600);
@@ -150,6 +171,12 @@ export function initPois(mapView: MapView): void {
       const p = cache.get(add);
       map.closePopup();
       if (p) openAdd({ ...prefillFromPoi(p), locSource: "del mapa" });
+      return;
+    }
+    const mark = t.closest<HTMLElement>("[data-mark]")?.dataset.mark;
+    if (mark && markAt) {
+      map.closePopup();
+      openAdd({ coords: markAt, locSource: "marcada en el mapa", status: mark === "done" ? "done" : "pend", lookupNear: true });
       return;
     }
     const open = t.closest<HTMLElement>("[data-poi-open]")?.dataset.poiOpen;
