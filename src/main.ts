@@ -116,13 +116,27 @@ async function start(): Promise<void> {
   restoreView(map);
   render();
   handleShare();
-  if (items.length) requestPersistence();
+  requestPersistence();
 }
 
 start();
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch((e) => console.warn("Service worker no registrado", e));
+  // Only a change of controller after the page was already controlled means a new version arrived.
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (hadController) $("#updateBar").hidden = false;
+  });
+  $("#updateBtn").addEventListener("click", () => location.reload());
+  window.addEventListener("load", async () => {
+    try {
+      const reg = await navigator.serviceWorker.register("./sw.js");
+      // iPhone keeps home-screen apps alive in the background: look for a new version each time it comes back.
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") reg.update().catch(() => {});
+      });
+    } catch (e) {
+      console.warn("Service worker no registrado", e);
+    }
   });
 }

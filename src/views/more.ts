@@ -1,7 +1,7 @@
 import { CATEGORIES } from "../categories";
 import { allPhotos, cleanListName, isDone, mergeItems, usage } from "../items";
 import { items, render, replaceAll, ui } from "../state";
-import { exportPhotos, importPhotos, parseImport, toExportJson } from "../store";
+import { exportPhotos, importPhotos, isPersisted, parseImport, toExportJson } from "../store";
 import { $, esc, toast } from "../util";
 import { changeList, knownLists, setList } from "./list";
 
@@ -45,6 +45,8 @@ export function renderMore(): void {
     </section>
     <section>
       <h2>Tus datos</h2>
+      <div class="warnbox"><b>No borres la app de la pantalla de inicio para actualizarla:</b> al borrarla se borran todos tus datos (en iPhone, siempre). Se actualiza sola; cuando haya una versión nueva verás el botón «Actualizar».</div>
+      <p class="muted" id="persistState"></p>
       <p>${items.length} guardados: ${items.length - nDone} pendientes y ${nDone} visitados. ${nPhotos} ${nPhotos === 1 ? "foto" : "fotos"}.<br><span class="muted">${perCat}</span></p>
       <p class="muted">Todo se guarda solo en este dispositivo. Haz una copia de vez en cuando, o para pasar tus datos a otro móvil.</p>
       <label class="checkline"><input type="checkbox" id="withPhotos" ${nPhotos ? "checked" : "disabled"}> Incluir las fotos en la copia</label>
@@ -66,6 +68,13 @@ export function renderMore(): void {
       <h2>Tipos</h2>
       <p>Comer, Ver, Ocio, Recetas y Varios. Lo que acabe a menudo en Varios puede tener su propio filtro.</p>
     </section>`;
+  isPersisted().then((ok) => {
+    const el = document.getElementById("persistState");
+    if (!el || ok === null) return;
+    el.textContent = ok
+      ? "El navegador protege tus datos frente a limpiezas automáticas."
+      : "El navegador aún no protege tus datos frente a limpiezas automáticas: haz copias a menudo.";
+  });
 }
 
 function download(name: string, text: string): void {
