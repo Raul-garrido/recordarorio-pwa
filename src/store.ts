@@ -20,8 +20,18 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(ITEMS)) db.createObjectStore(ITEMS, { keyPath: "id" });
       if (!db.objectStoreNames.contains(PHOTOS)) db.createObjectStore(PHOTOS, { keyPath: "id" });
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      // A newer version of the app wants to upgrade the database: let it, and reload into the new version.
+      db.onversionchange = () => {
+        db.close();
+        location.reload();
+      };
+      resolve(db);
+    };
     req.onerror = () => reject(req.error);
+    // Another open copy of the app (an old version) still holds the database; it closes itself above.
+    req.onblocked = () => console.warn("Base de datos bloqueada por otra ventana de Recordatorio; esperando a que se cierre.");
   });
   return dbPromise;
 }
@@ -74,12 +84,26 @@ export function deletePhotos(ids: string[]): Promise<unknown> {
   });
 }
 
-/** Asks the browser not to evict our data when the device is low on space. */
-export async function requestPersistence(): Promise<boolean> {
+let persistAsked: Promise<boolean> | null = null;
+
+/** Asks the browser not to evict our data when the device is low on space. Asked once per session. */
+export function requestPersistence(): Promise<boolean> {
+  persistAsked ??= (async () => {
+    try {
+      if (await navigator.storage?.persisted?.()) return true;
+      return (await navigator.storage?.persist?.()) ?? false;
+    } catch {
+      return false;
+    }
+  })();
+  return persistAsked;
+}
+
+export async function isPersisted(): Promise<boolean | null> {
   try {
-    return (await navigator.storage?.persist?.()) ?? false;
+    return (await navigator.storage?.persisted?.()) ?? null;
   } catch {
-    return false;
+    return null;
   }
 }
 

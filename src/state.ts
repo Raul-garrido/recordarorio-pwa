@@ -64,6 +64,7 @@ export function upsert(item: Item): void {
   if (i >= 0) items[i] = item;
   else items.push(item);
   store.putItem(item).catch(fail);
+  store.requestPersistence();
   render();
 }
 

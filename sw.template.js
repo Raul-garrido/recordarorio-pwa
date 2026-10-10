@@ -42,9 +42,13 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
 
   // App pages (including share-target URLs with ?title=…): network first, offline falls back to the cached shell.
+  // "no-cache" asks the server every time: GitHub Pages lets the browser keep pages for 10 minutes, and without it
+  // reopening the app right after an update still showed the old version.
   if (req.mode === "navigate") {
     event.respondWith(
-      fetch(req).catch(async () => (await caches.match("./index.html", { ignoreSearch: true })) || (await caches.match("./"))),
+      fetch(new Request(req.url, { cache: "no-cache", credentials: "same-origin" }))
+        .then((res) => (res.ok && !res.redirected ? res : fetch(req)))
+        .catch(async () => (await caches.match("./index.html", { ignoreSearch: true })) || (await caches.match("./"))),
     );
     return;
   }

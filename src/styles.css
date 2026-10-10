@@ -330,6 +330,16 @@ aside.side { display: flex; flex-direction: column; min-height: 0; background: v
 .mlist .mbtns { margin-left: auto; display: flex; gap: 4px; }
 .mlist .mbtns .btn { margin-left: 0; }
 
+/* New version available */
+.updatebar {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 1150; bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; border-radius: 14px;
+  background: var(--ink); color: var(--bg); box-shadow: var(--shadow); font-weight: 600; max-width: calc(100% - 32px);
+}
+.updatebar .btn { background: var(--bg); color: var(--ink); border-color: var(--bg); }
+.warnbox { border: 1.5px solid var(--warn); border-radius: 12px; padding: 10px 12px; font-size: 14px; }
+.warnbox b { color: var(--warn); }
+
 @media (max-width: 820px) {
   html, body { height: auto; }
   .app { height: auto; }
