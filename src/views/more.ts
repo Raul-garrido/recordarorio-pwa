@@ -1,9 +1,9 @@
 import { CATEGORIES } from "../categories";
-import { allPhotos, cleanListName, isDone, mergeItems, renameList, usage } from "../items";
-import { items, render, replaceAll, ui, upsert } from "../state";
+import { allPhotos, cleanListName, isDone, mergeItems, usage } from "../items";
+import { items, render, replaceAll, ui } from "../state";
 import { exportPhotos, importPhotos, parseImport, toExportJson } from "../store";
 import { $, esc, toast } from "../util";
-import { setList } from "./list";
+import { changeList, knownLists, setList } from "./list";
 
 /** List whose rename/delete controls are open. */
 let editing: string | null = null;
@@ -14,7 +14,7 @@ export function renderMore(): void {
   const nDone = items.filter(isDone).length;
   const nPhotos = items.reduce((n, p) => n + allPhotos(p).length, 0);
   const perCat = CATEGORIES.map((c) => `${c.name} ${items.filter((p) => p.cat === c.key).length}`).join(" · ");
-  const lists = usage(items, "lists");
+  const lists = knownLists();
   const tags = usage(items, "tags");
   $("#paneMore").innerHTML = `
     <section>
@@ -27,7 +27,8 @@ export function renderMore(): void {
                   ? `<li><form class="inl" data-rename="${esc(l.name)}"><input name="to" value="${esc(l.name)}" aria-label="Nuevo nombre" maxlength="60"><button class="btn small" type="submit">Guardar</button></form>
                      <button type="button" class="btn ghost small danger" data-dellist="${esc(l.name)}">${confirmDelete === l.name ? "Toca otra vez: quitar lista" : "Quitar lista"}</button></li>`
                   : `<li><button type="button" class="linklike" data-golist="${esc(l.name)}">${esc(l.name)}</button> <span class="muted">${l.n}</span>
-                     <button type="button" class="btn ghost small" data-editlist="${esc(l.name)}">Renombrar</button></li>`,
+                     <span class="mbtns"><button type="button" class="btn ghost small" data-editlist="${esc(l.name)}">Renombrar</button>
+                     <button type="button" class="btn ghost small danger" data-dellist="${esc(l.name)}">${confirmDelete === l.name ? "Toca otra vez para quitarla" : "Quitar"}</button></span></li>`,
               )
               .join("")}</ul>
              <p class="muted">Quitar una lista no borra nada: sus sitios siguen en «Todas».</p>`
@@ -77,11 +78,9 @@ function download(name: string, text: string): void {
 }
 
 function applyRename(from: string, to: string): void {
-  for (const p of renameList(items, from, to)) upsert(p);
-  if (ui.list === from) setList(cleanListName(to) || null);
   editing = null;
   confirmDelete = null;
-  render();
+  changeList(from, to);
 }
 
 export function initMore(): void {
@@ -112,8 +111,7 @@ export function initMore(): void {
         confirmDelete = del;
         return render();
       }
-      applyRename(del, "");
-      return toast(`Lista «${del}» quitada.`);
+      return applyRename(del, "");
     }
     if (t.closest("#exportBtn")) {
       const withPhotos = $<HTMLInputElement>("#withPhotos").checked;
@@ -129,6 +127,10 @@ export function initMore(): void {
     if (!from) return;
     const to = cleanListName(new FormData(f).get("to")?.toString() ?? "");
     if (!to) return toast("Ponle un nombre a la lista.");
+    if (to === from) {
+      editing = null;
+      return render();
+    }
     applyRename(from, to);
   });
   pane.addEventListener("change", async (e) => {

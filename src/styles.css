@@ -324,6 +324,12 @@ aside.side { display: flex; flex-direction: column; min-height: 0; background: v
 .poipop .row { margin-top: 6px; }
 .poipop .row .btn { margin-top: 0; }
 
+/* Edit the active list */
+.editlist { display: grid; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.editlist label { font-size: 13px; font-weight: 600; }
+.mlist .mbtns { margin-left: auto; display: flex; gap: 4px; }
+.mlist .mbtns .btn { margin-left: 0; }
+
 @media (max-width: 820px) {
   html, body { height: auto; }
   .app { height: auto; }

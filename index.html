@@ -55,8 +55,21 @@
         <div class="listbar">
           <label for="listSel">Lista</label>
           <select id="listSel"></select>
+          <button class="btn ghost small" type="button" id="editListBtn" hidden>Editar</button>
           <button class="btn ghost small" type="button" id="newListBtn">+ Nueva</button>
         </div>
+        <form class="editlist" id="editListForm" hidden>
+          <label for="editListIn">Nombre de la lista</label>
+          <div class="inl">
+            <input id="editListIn" aria-label="Nombre de la lista" maxlength="60">
+            <button class="btn primary small" type="submit">Guardar</button>
+          </div>
+          <div class="row">
+            <button class="btn ghost small danger" type="button" id="delListBtn">Quitar lista</button>
+            <button class="btn ghost small" type="button" id="editListCancel">Cancelar</button>
+          </div>
+          <p class="hint">Quitar la lista no borra nada: sus sitios siguen en «Todas».</p>
+        </form>
         <form class="inl newlist" id="newListForm" hidden>
           <input id="newListIn" placeholder="Ej. Lisboa mayo, Madrid…" aria-label="Nombre de la lista" maxlength="60">
           <button class="btn" type="submit">Crear</button>

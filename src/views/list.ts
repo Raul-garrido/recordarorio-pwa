@@ -2,10 +2,10 @@ import { CATEGORIES, cat, countLabel, iconSvg, isCatKey } from "../categories";
 import { fmtDate } from "../dates";
 import {
   avgRating, cleanListName, distanceKm, effectiveOrder, fmtDistance, hasLoc, isDone, lastVisit,
-  matchesQuery, matchesScope, matchesTab, ORDERS_BY_TAB, usage, visibleItems,
+  matchesQuery, matchesScope, matchesTab, ORDERS_BY_TAB, renameList, usage, visibleItems,
 } from "../items";
 import { platformOf } from "../links";
-import { items, render, select, setTab, ui } from "../state";
+import { items, render, select, setTab, ui, upsert } from "../state";
 import type { Item, Order, Period } from "../types";
 import { $, esc, ICONS, toast } from "../util";
 
@@ -38,10 +38,34 @@ export function restoreList(): void {
   }
 }
 
-export function renderListBar(): void {
+/** Lists in use, plus the active one even if nothing is in it yet (just created). */
+export function knownLists(): { name: string; n: number }[] {
   const lists = usage(items, "lists");
-  // A just-created list has no items yet but must still show as selected.
   if (ui.list && !lists.some((l) => l.name === ui.list)) lists.unshift({ name: ui.list, n: 0 });
+  return lists;
+}
+
+/** Renames a list on every item that has it, or removes it when `to` is empty. Items are never deleted. */
+export function changeList(from: string, to: string): void {
+  const target = cleanListName(to);
+  for (const p of renameList(items, from, target)) upsert(p);
+  if (ui.list === from) setList(target || null);
+  render();
+  toast(target ? `Lista renombrada a «${target}».` : `Lista «${from}» quitada.`);
+}
+
+let confirmDelList = false;
+
+function closeEditList(): void {
+  $("#editListForm").hidden = true;
+  confirmDelList = false;
+  $("#delListBtn").textContent = "Quitar lista";
+}
+
+export function renderListBar(): void {
+  const lists = knownLists();
+  $("#editListBtn").hidden = !ui.list;
+  if (!ui.list) $("#editListForm").hidden = true;
   $("#listSel").innerHTML =
     `<option value="">Todas (${items.length})</option>` +
     lists.map((l) => `<option value="${esc(l.name)}" ${l.name === ui.list ? "selected" : ""}>${esc(l.name)} (${l.n})</option>`).join("");
@@ -162,7 +186,39 @@ export function initList(opts: {
     select(null);
     opts.fitList();
   });
+  $("#editListBtn").addEventListener("click", () => {
+    const f = $("#editListForm");
+    if (!f.hidden) return closeEditList();
+    $("#newListForm").hidden = true;
+    f.hidden = false;
+    const inp = $<HTMLInputElement>("#editListIn");
+    inp.value = ui.list ?? "";
+    inp.focus();
+    inp.select();
+  });
+  $("#editListCancel").addEventListener("click", closeEditList);
+  $("#editListForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const from = ui.list;
+    const to = cleanListName($<HTMLInputElement>("#editListIn").value);
+    if (!from) return closeEditList();
+    if (!to) return toast("Ponle un nombre a la lista, o pulsa «Quitar lista».");
+    closeEditList();
+    if (to !== from) changeList(from, to);
+  });
+  $("#delListBtn").addEventListener("click", () => {
+    const from = ui.list;
+    if (!from) return closeEditList();
+    if (!confirmDelList) {
+      confirmDelList = true;
+      $("#delListBtn").textContent = "Toca otra vez para quitarla";
+      return;
+    }
+    closeEditList();
+    changeList(from, "");
+  });
   $("#newListBtn").addEventListener("click", () => {
+    closeEditList();
     const f = $("#newListForm");
     f.hidden = !f.hidden;
     if (!f.hidden) $<HTMLInputElement>("#newListIn").focus();
