@@ -6,6 +6,7 @@ PWA para guardar sitios a los que quieres ir, recetas que ves en vídeos y otras
 
 - **Tipos**: Comer, Ver, Ocio, Recetas y Varios. Las recetas no llevan ubicación; en Varios es opcional.
 - **Ubicación**: pega un enlace de Google Maps (lee las coordenadas), escribe una dirección y pulsa *Buscar* (OpenStreetMap / Nominatim) o toca el mapa.
+- **Locales del mapa**: al acercar el mapa salen como puntos los restaurantes, bares, museos, cines… de OpenStreetMap (Overpass). Al tocar uno se añade con nombre, tipo, dirección, horario, teléfono, web y etiquetas (cocina, terraza); solo falta tu comentario. También se buscan por nombre con *Buscar en el mapa*. Los que ya tienes guardados no se repiten.
 - **Visto en**: varios enlaces por elemento (TikTok, Instagram, YouTube…), también añadibles después desde la ficha.
 - **Pendientes / Visitados**: al registrar una visita (fecha + comentario) pasa a Visitados. Se pueden añadir tantas visitas como quieras. En las recetas, cada registro es una vez que la has hecho.
 - **Listas** por viaje o ciudad ("Lisboa mayo", "Madrid"): selector arriba de la lista; lo nuevo va a la lista activa. Se renombran o quitan en *Más*.
@@ -48,5 +49,6 @@ Añade una entrada a `CATEGORIES` en `src/categories.ts` y su clave a `CatKey` e
 | `src/photos.ts` | Reduce, guarda y muestra las fotos de las visitas |
 | `src/map.ts` | Mapa Leaflet + OpenStreetMap |
 | `src/geocode.ts` | Dirección → coordenadas (Nominatim) |
+| `src/poi.ts`, `src/views/pois.ts` | Locales del mapa: carga, búsqueda y alta con sus datos |
 | `src/views/*` | Lista, ficha, formulario y pestaña Más |
 | `sw.template.js` | Service worker; `vite.config.ts` le añade la lista de archivos al compilar |

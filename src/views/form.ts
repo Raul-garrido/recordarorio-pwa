@@ -1,10 +1,10 @@
 import { CATEGORIES, cat, iconSvg } from "../categories";
 import { geocode, type GeoResult } from "../geocode";
-import { cleanListName, makeItem, parseTags, usage } from "../items";
+import { cleanListName, emptyInfo, makeItem, parseTags, usage } from "../items";
 import { normUrl, parseMapsLink, platformOf, type Coords } from "../links";
 import type { MapView } from "../map";
 import { byId, items, select, setTab, ui, upsert } from "../state";
-import type { CatKey, Item } from "../types";
+import type { CatKey, Item, ItemInfo } from "../types";
 import { $, esc, toast } from "../util";
 import { setList } from "./list";
 
@@ -18,6 +18,9 @@ export interface FormPrefill {
   socials?: string[];
   tags?: string[];
   lists?: string[];
+  info?: ItemInfo;
+  /** Shown next to the location, e.g. "del mapa". */
+  locSource?: string;
 }
 
 interface Draft {
@@ -31,9 +34,10 @@ interface Draft {
   /** A Maps link that arrived through sharing while the input shows its address instead. */
   sharedMaps: string;
   lists: Set<string>;
+  info: ItemInfo;
 }
 
-const d: Draft = { editId: null, cat: "comer", loc: null, locSource: "", shared: [], sharedMaps: "", lists: new Set() };
+const d: Draft = { editId: null, cat: "comer", loc: null, locSource: "", shared: [], sharedMaps: "", lists: new Set(), info: emptyInfo() };
 let map: MapView;
 let geoAbort: AbortController | null = null;
 let lastGeoAt = 0;
@@ -260,6 +264,7 @@ function stopPicking(): void {
 
 function fill(p: FormPrefill & { ingr?: string }): void {
   d.lists = new Set(p.lists ?? (ui.list ? [ui.list] : []));
+  d.info = p.info ?? emptyInfo();
   $<HTMLFormElement>("#form").reset();
   showError("");
   d.cat = p.cat ?? ([...ui.cats][0] || "comer");
@@ -279,7 +284,8 @@ function fill(p: FormPrefill & { ingr?: string }): void {
   renderAttach();
   if (linkIn().value) onLinkInput();
   else setHint("Pega un enlace de Google Maps (Compartir → Copiar enlace) o escribe la dirección y pulsa Buscar.");
-  if (p.coords) setLoc(p.coords, d.editId ? "guardada" : "del enlace");
+  if (p.coords) setLoc(p.coords, d.editId ? "guardada" : p.locSource ?? "del enlace");
+  if (!d.editId && p.locSource === "del mapa") setHint("Datos del mapa. Solo te falta tu comentario.", "ok");
 }
 
 export function openAdd(prefill: FormPrefill = {}): void {
@@ -330,6 +336,7 @@ function collect(): Partial<Item> {
     socials,
     tags: parseTags($<HTMLInputElement>("#fTags").value),
     lists: [...d.lists],
+    info: d.info,
   };
 }
 

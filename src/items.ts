@@ -1,7 +1,9 @@
 import { cat, isCatKey } from "./categories";
 import { daysAgo, isIsoDate, isoDate } from "./dates";
 import { platformOf, type Coords } from "./links";
-import type { CatKey, Item, Order, Period, Tab, Visit } from "./types";
+import type { CatKey, Item, ItemInfo, Order, Period, Tab, Visit } from "./types";
+
+export const emptyInfo = (): ItemInfo => ({ website: "", phone: "", hours: "", osmId: "" });
 
 export function newId(prefix = ""): string {
   const rnd = typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -78,6 +80,7 @@ export function makeItem(fields: Partial<Item> & { name: string; cat: CatKey }):
     socials: [],
     tags: [],
     lists: [],
+    info: emptyInfo(),
     visits: [],
     createdAt: now,
     updatedAt: now,
@@ -124,6 +127,10 @@ export function normalizeItem(raw: unknown): Item | null {
     socials: strList(r.socials),
     tags: parseTags(strList(r.tags).join(",")),
     lists: [...new Set(strList(r.lists).map(cleanListName).filter(Boolean))],
+    info: (() => {
+      const o = (r.info ?? {}) as Record<string, unknown>;
+      return { website: str(o.website), phone: str(o.phone), hours: str(o.hours), osmId: str(o.osmId) };
+    })(),
     visits: sortVisits(visits),
     createdAt: str(r.createdAt) || now,
     updatedAt: str(r.updatedAt) || now,

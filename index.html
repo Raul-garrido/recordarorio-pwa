@@ -33,6 +33,12 @@
     <main class="grid">
       <section class="mapwrap" aria-label="Mapa">
         <div id="map"></div>
+        <form class="mapsearch" id="mapSearch" role="search">
+          <input id="mapSearchIn" type="search" placeholder="Buscar en el mapa: local, museo, dirección…" aria-label="Buscar en el mapa" autocomplete="off">
+          <button type="button" id="mapSearchClear" aria-label="Quitar resultados" hidden>×</button>
+          <button type="submit" class="btn small">Buscar</button>
+        </form>
+        <div class="poihint" id="poiHint" hidden></div>
         <button class="mapbtn" id="locateBtn" type="button" aria-label="Ir a mi ubicación" title="Mi ubicación">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
         </button>

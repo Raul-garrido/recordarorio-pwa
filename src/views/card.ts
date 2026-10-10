@@ -3,6 +3,7 @@ import { fmtDate, isoDate } from "../dates";
 import { avgRating, hasLoc, isDone, newId } from "../items";
 import { normUrl, platformOf, shortUrl } from "../links";
 import { hydratePhotos, photoUrl, savePhotos } from "../photos";
+import { hoursEs } from "../poi";
 import { byId, remove, render, select, setTab, ui, upsert } from "../state";
 import { deletePhotos } from "../store";
 import type { Item, Visit } from "../types";
@@ -66,6 +67,17 @@ function visitRow(p: Item, v: Visit): string {
   </li>`;
 }
 
+function infoHtml(p: Item): string {
+  const { hours, phone, website } = p.info;
+  if (!hours && !phone && !website) return "";
+  const rows = [
+    hours && `<div><span class="k">Horario</span><span>${esc(hoursEs(hours))}</span></div>`,
+    phone && `<div><span class="k">Teléfono</span><a href="tel:${esc(phone.replace(/[^+\d]/g, ""))}">${esc(phone)}</a></div>`,
+    website && `<div><span class="k">Web</span><a href="${safeHref(normUrl(website))}" target="_blank" rel="noopener">${esc(shortUrl(normUrl(website)))}</a></div>`,
+  ].filter(Boolean);
+  return `<div class="infobox">${rows.join("")}</div>`;
+}
+
 export function renderCard(): void {
   const card = $("#card");
   const p = byId(ui.sel);
@@ -95,6 +107,7 @@ export function renderCard(): void {
     ${p.desc ? `<p class="desc">${esc(p.desc)}</p>` : ""}
     ${p.ingr ? `<div class="vlabel">Ingredientes</div><div class="ingr">${esc(p.ingr)}</div>` : ""}
     ${meta ? `<div class="meta">${meta}</div>` : ""}
+    ${infoHtml(p)}
     <div class="vlabel">Visto en</div>
     <div class="links">${p.socials.map(linkPill).join("")}${ui.addingLink ? "" : `<button type="button" class="lnk add" id="cardAddLink">+ ${p.socials.length ? "Otro enlace" : "Añadir enlace"}</button>`}</div>
     ${ui.addingLink ? `<form class="inl" id="linkForm"><input id="linkIn" type="url" inputmode="url" placeholder="Pega el enlace de TikTok, Instagram…" aria-label="Enlace"><button class="btn" type="submit">Añadir</button></form>` : ""}

@@ -3,6 +3,7 @@ import "leaflet/dist/leaflet.css";
 import { cat } from "./categories";
 import { hasLoc, isDone } from "./items";
 import type { Coords } from "./links";
+import { kindOf, type Bounds, type Poi } from "./poi";
 import type { Item } from "./types";
 
 const PIN_PATH = "M17,42C13,33 2,25 2,15A15,15 0 1 1 32,15C32,25 21,33 17,42Z";
@@ -29,6 +30,9 @@ export class MapView {
   private draft: L.Marker | null = null;
   private me: L.CircleMarker | null = null;
   private clickHandler: ((c: Coords) => void) | null = null;
+  private poiLayer = L.layerGroup();
+  /** Called when a map place (not one of ours) is tapped. */
+  onPoi: ((p: Poi) => void) | null = null;
 
   constructor(el: HTMLElement, private onSelect: (id: string | null) => void) {
     this.map = L.map(el, { zoomControl: false, attributionControl: true }).setView(DEFAULT_VIEW, 13);
@@ -42,6 +46,45 @@ export class MapView {
       else this.onSelect(null);
     });
     new ResizeObserver(() => this.map.invalidateSize()).observe(el);
+    this.poiLayer.addTo(this.map);
+  }
+
+  bounds(): Bounds {
+    const b = this.map.getBounds();
+    return { s: b.getSouth(), w: b.getWest(), n: b.getNorth(), e: b.getEast() };
+  }
+
+  /** Small dots for map places; highlighted ones (search results) are drawn bigger and on top. */
+  setPois(pois: Poi[], highlighted: Set<string>): void {
+    this.poiLayer.clearLayers();
+    const ordered = [...pois].sort((a, b) => Number(highlighted.has(a.id)) - Number(highlighted.has(b.id)));
+    for (const p of ordered) {
+      const hi = highlighted.has(p.id);
+      L.circleMarker([p.lat, p.lng], {
+        radius: hi ? 10 : 8,
+        weight: 2,
+        className: `poi c-${kindOf(p.tags).cat}${hi ? " hi" : ""}`,
+        bubblingMouseEvents: false,
+      })
+        .bindTooltip(p.name, { direction: "top", offset: [0, -6] })
+        .on("click", () => {
+          if (!this.clickHandler) this.onPoi?.(p);
+        })
+        .addTo(this.poiLayer);
+    }
+  }
+
+  showPopup(c: Coords, html: string): void {
+    L.popup({ className: "poipopup", maxWidth: 280, autoPanPadding: [20, 60] }).setLatLng([c.lat, c.lng]).setContent(html).openOn(this.map);
+  }
+
+  closePopup(): void {
+    this.map.closePopup();
+  }
+
+  fitPoints(pts: Coords[]): void {
+    if (pts.length === 1) this.map.setView([pts[0].lat, pts[0].lng], Math.max(this.map.getZoom(), 17));
+    else if (pts.length > 1) this.map.fitBounds(L.latLngBounds(pts.map((p) => L.latLng(p.lat, p.lng))), { padding: [40, 40], maxZoom: 17 });
   }
 
   /** Draws pins for the given items; items without a location are skipped. */

@@ -9,6 +9,7 @@ import { initCard, openVisitForm, renderCard } from "./views/card";
 import { initForm, openAdd, openEdit } from "./views/form";
 import { currentItems, initList, renderFilters, renderList, renderListBar, renderTabs, restoreList } from "./views/list";
 import { initMore, renderMore } from "./views/more";
+import { drawPois, initPois } from "./views/pois";
 
 const VIEW_KEY = "recordatorio.view";
 
@@ -80,6 +81,7 @@ async function start(): Promise<void> {
   initCard({ edit: openEdit });
   initForm(map);
   initMore();
+  initPois(map);
 
   onChange(() => {
     renderListBar();
@@ -90,6 +92,7 @@ async function start(): Promise<void> {
     renderCard();
     const shown = ui.tab === "more" ? items.filter((p) => !ui.list || p.lists.includes(ui.list)) : currentItems();
     map.setItems(shown, ui.sel, ui.tab === "more");
+    drawPois();
     document.querySelector(".item.sel")?.scrollIntoView({ block: "nearest" });
   });
 
