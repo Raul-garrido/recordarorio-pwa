@@ -37,14 +37,34 @@ export class MapView {
   onEmptyTap: ((c: Coords) => void) | null = null;
   onLongPress: ((c: Coords) => void) | null = null;
   private popupClosedAt = 0;
+  private streets = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    className: "osm-tiles",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  });
+  // Esri World Imagery plus place and street names on top, so the satellite view stays readable.
+  private satellite = L.layerGroup([
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+      maxZoom: 19,
+      maxNativeZoom: 18,
+      attribution: "Imágenes &copy; Esri, Maxar, Earthstar Geographics",
+    }),
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
+      maxZoom: 19,
+      maxNativeZoom: 18,
+    }),
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", {
+      maxZoom: 19,
+      maxNativeZoom: 18,
+      opacity: 0.7,
+    }),
+  ]);
+  basemap: "streets" | "satellite" = "streets";
 
   constructor(el: HTMLElement, private onSelect: (id: string | null) => void) {
     this.map = L.map(el, { zoomControl: false, attributionControl: true }).setView(DEFAULT_VIEW, 13);
     L.control.zoom({ position: "topright" }).addTo(this.map);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(this.map);
+    this.streets.addTo(this.map);
     this.map.on("popupclose", () => (this.popupClosedAt = Date.now()));
     this.map.on("click", (e: L.LeafletMouseEvent) => {
       const c = { lat: e.latlng.lat, lng: e.latlng.lng };
@@ -59,6 +79,14 @@ export class MapView {
     });
     new ResizeObserver(() => this.map.invalidateSize()).observe(el);
     this.poiLayer.addTo(this.map);
+  }
+
+  setBasemap(kind: "streets" | "satellite"): void {
+    this.basemap = kind;
+    const [on, off] = kind === "satellite" ? [this.satellite, this.streets] : [this.streets, this.satellite];
+    off.remove();
+    if (!this.map.hasLayer(on)) on.addTo(this.map);
+    this.map.getContainer().classList.toggle("sat", kind === "satellite");
   }
 
   bounds(): Bounds {
