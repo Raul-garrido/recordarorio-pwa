@@ -52,7 +52,7 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
-  if (url.hostname.endsWith("tile.openstreetmap.org")) {
+  if (url.hostname.endsWith("tile.openstreetmap.org") || url.hostname === "server.arcgisonline.com") {
     event.respondWith(cacheFirst(req, TILES, MAX_TILES));
     return;
   }

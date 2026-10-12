@@ -12,6 +12,23 @@ import { initMore, renderMore } from "./views/more";
 import { drawPois, initPois } from "./views/pois";
 
 const VIEW_KEY = "recordatorio.view";
+const BASEMAP_KEY = "recordatorio.basemap";
+const COLLAPSED_KEY = "recordatorio.mapCollapsed";
+
+const remember = (key: string, value: string) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* not remembered */
+  }
+};
+const recall = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
 
 function injectCategoryColors(): void {
   const style = document.createElement("style");
@@ -58,6 +75,34 @@ async function start(): Promise<void> {
     ui.here = await map.locate();
   };
 
+  const setBasemap = (kind: "streets" | "satellite") => {
+    map.setBasemap(kind);
+    $("#layerBtn").setAttribute("aria-pressed", String(kind === "satellite"));
+    $("#layerLabel").textContent = kind === "satellite" ? "Mapa" : "Satélite";
+    remember(BASEMAP_KEY, kind);
+  };
+  setBasemap(recall(BASEMAP_KEY) === "satellite" ? "satellite" : "streets");
+  $("#layerBtn").addEventListener("click", () => setBasemap(map.basemap === "satellite" ? "streets" : "satellite"));
+
+  // "Ampliar lista" hides the map so the results get the whole screen; picking one brings the map back.
+  const setCollapsed = (collapsed: boolean) => {
+    document.body.classList.toggle("map-collapsed", collapsed);
+    $("#collapseBtn").setAttribute("aria-expanded", String(!collapsed));
+    $("#collapseLabel").textContent = collapsed ? "Mostrar mapa" : "Ampliar lista";
+    remember(COLLAPSED_KEY, collapsed ? "1" : "0");
+    if (!collapsed) map.map.invalidateSize();
+  };
+  setCollapsed(recall(COLLAPSED_KEY) === "1");
+  $("#collapseBtn").addEventListener("click", () => setCollapsed(!document.body.classList.contains("map-collapsed")));
+  const showOnMap = (id: string) => {
+    if (document.body.classList.contains("map-collapsed")) {
+      setCollapsed(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    const p = byId(id);
+    if (p) map.focus(p);
+  };
+
   try {
     await load();
   } catch (e) {
@@ -67,14 +112,10 @@ async function start(): Promise<void> {
 
   initList({
     openVisit: (id) => {
+      showOnMap(id);
       openVisitForm(id);
-      const p = byId(id);
-      if (p) map.focus(p);
     },
-    focusItem: (id) => {
-      const p = byId(id);
-      if (p) map.focus(p);
-    },
+    focusItem: showOnMap,
     locate,
     fitList: () => map.fitTo(currentItems()),
   });

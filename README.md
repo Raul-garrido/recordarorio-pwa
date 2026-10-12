@@ -7,6 +7,8 @@ PWA para guardar sitios a los que quieres ir, recetas que ves en vídeos y otras
 - **Tipos**: Comer, Ver, Ocio, Recetas y Varios. Las recetas no llevan ubicación; en Varios es opcional.
 - **Ubicación**: pega un enlace de Google Maps (lee las coordenadas), escribe una dirección y pulsa *Buscar* (OpenStreetMap / Nominatim) o toca el mapa.
 - **Locales del mapa**: al acercar el mapa salen como puntos los restaurantes, bares, museos, cines… de OpenStreetMap (Overpass). Al tocar uno se añade con nombre, tipo, dirección, horario, teléfono, web y etiquetas (cocina, terraza); solo falta tu comentario. También se buscan por nombre con *Buscar en el mapa*. Los que ya tienes guardados no se repiten.
+- **Mapa o satélite**: botón en el mapa para cambiar a vista satélite (Esri World Imagery, con nombres de calles y lugares). Se recuerda.
+- **Ampliar lista**: esconde el mapa para ver los resultados a pantalla completa; al tocar uno, vuelve el mapa con ese sitio.
 - **Marcar a mano**: toca cualquier punto vacío del mapa (o mantén pulsado) y elige *Pendiente* o *Ya he estado*. Se rellena la dirección y se proponen los locales que hay al lado.
 - **Foto rápida**: el botón *Foto* abre la cámara, guarda la foto con tu ubicación y te propone los locales de al lado. Si no hay tiempo, se guarda aunque no tenga nombre (usa la dirección).
 - **Estado al añadir**: *Pendiente* o *Ya he estado* (con fecha, estrellas y comentario), y fotos del sitio desde la cámara o la galería.
